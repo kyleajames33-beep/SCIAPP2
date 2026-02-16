@@ -1,0 +1,20 @@
+// Solo game components
+export { QuestionCard } from './QuestionCard'
+export { StatsBar } from './StatsBar'
+export { PowerUpShop } from './PowerUpShop'
+export { PowerUpBar } from './PowerUpBar'
+export { ModeSelect } from './ModeSelect'
+export { LobbyScreen } from './LobbyScreen'
+export { ResultsScreen } from './ResultsScreen'
+export { ProgressBar } from './ProgressBar'
+export { CoinAnimation } from './CoinAnimation'
+export { default as QuizGame } from './quiz-game'
+
+// Boss Battle components
+export { BossIntentDisplay } from './boss-intent'
+export type { BossIntent } from './boss-intent'
+export { StatusEffectsBar, StatusEffectOverlay } from './status-effects'
+export type { StatusEffect, StatusEffectType } from './status-effects'
+export { ElementalParticles, useScreenShake } from './elemental-particles'
+export type { ElementalType } from './elemental-particles'
+export { EnhancedBattleArena } from './enhanced-battle-arena'

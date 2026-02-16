@@ -1,0 +1,277 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+// ─── User Accounts ───────────────────────────────────────────
+model User {
+  id              String    @id @default(cuid())
+  username        String    @unique
+  displayName     String
+  email           String?   @unique
+  passwordHash    String                        // bcrypt hash
+  role            String    @default("student") // "student" | "teacher" | "admin"
+  totalCoins      Int       @default(0)         // Lifetime coins earned (persistent wallet)
+  totalScore      Int       @default(0)         // Lifetime score
+  gamesPlayed     Int       @default(0)
+  gamesWon        Int       @default(0)         // Multiplayer wins
+  bestStreak      Int       @default(0)
+  totalCorrect    Int       @default(0)
+  totalIncorrect  Int       @default(0)
+  
+  // Platform Expansion: Kit Mode & Tower Climb
+  gems            Int       @default(0)         // Premium currency for special upgrades
+  prestigeLevel   Int       @default(0)         // Prestige tier (reset progress for bonuses)
+  lifetimeEarnings BigInt   @default(0)         // Total coins ever earned (never resets)
+
+  // Referral & Engagement Features
+  referralCode    String?   @unique             // Unique 6-char referral code (e.g., "ABC123")
+  referredBy      String?                       // UserId of referrer
+  referralCount   Int       @default(0)         // Number of successful referrals
+  lastChallengeDate DateTime?                   // Last daily challenge completion date
+  challengesCompleted Int   @default(0)         // Total challenges completed
+
+  // Character Customization
+  bodyType        String    @default("strong")   // "athletic" | "strong"
+  hairColor       String    @default("red")      // "blue" | "red" | "purple" | "green"
+  weaponType      String    @default("hammer")   // "sword" | "hammer" | "staff"
+  accessories     String    @default("")         // comma-separated accessory IDs
+  ownedItems      String[]  @default(["red", "hammer", "strong"]) // Purchased hair colors, weapons, body types
+
+  // Campaign & Subscription (Phase 6: CoD Model)
+  rank             String    @default("Hydrogen")  // Element-based rank progression
+  campaignXp       Int       @default(0)           // XP earned through campaign mode
+  subscriptionTier String    @default("free")      // "free" | "pro" | "premium"
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  gameSessions    GameSession[]  // Games this user has played
+  players         Player[]       // Multiplayer player records
+  questionSets    QuestionSet[]  // If teacher, their custom sets
+  leaderboardEntries LeaderboardEntry[]
+  upgrades        UserUpgrade[]  // Kit Mode enterprise upgrades
+  progress        UserProgress[] // Tower Climb progress tracking
+  campaignProgress CampaignProgress[] // Campaign chamber progress
+  bossAttempts     BossAttempt[]      // Campaign boss attempts
+
+  @@index([username])
+  @@index([email])
+}
+
+// ─── User Upgrades (Kit Mode Enterprises) ────────────────────
+model UserUpgrade {
+  id         String   @id @default(cuid())
+  userId     String
+  upgradeId  String                           // e.g. "passive_income_1", "streak_multiplier"
+  level      Int      @default(1)             // Current level of this upgrade
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, upgradeId])               // One upgrade per type per user
+  @@index([userId])
+}
+
+// ─── User Progress (Tower Climb & Mode Progress) ─────────────
+model UserProgress {
+  id           String   @id @default(cuid())
+  userId       String
+  mode         String                         // "tower_climb" | "boss_battle" | etc.
+  highestFloor Int      @default(0)           // Highest floor reached in Tower
+  bestTime     Int      @default(0)           // Best completion time in seconds
+  totalRuns    Int      @default(0)           // Number of attempts
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, mode])                    // One progress record per mode per user
+  @@index([userId])
+  @@index([mode, highestFloor(sort: Desc)])   // Leaderboard queries
+}
+
+// ─── Question Sets (teacher-created) ─────────────────────────
+model QuestionSet {
+  id          String    @id @default(cuid())
+  name        String                            // e.g. "Module 1 - Atomic Structure"
+  description String?
+  subject     String    @default("Chemistry")
+  module      String?                           // e.g. "Module 1"
+  isPublic    Boolean   @default(false)
+  creatorId   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  creator      User         @relation(fields: [creatorId], references: [id])
+  questions    Question[]
+  gameSessions GameSession[]
+
+  @@index([creatorId])
+}
+
+// ─── Leaderboard (persistent, per question set) ──────────────
+model LeaderboardEntry {
+  id            String    @id @default(cuid())
+  userId        String
+  questionSetId String?
+  gameMode      String                          // "classic" | "rush" | "survival"
+  score         Int
+  accuracy      Float                           // 0.0 to 1.0
+  maxStreak     Int
+  timeTaken     Int                             // total seconds
+  createdAt     DateTime  @default(now())
+
+  user          User      @relation(fields: [userId], references: [id])
+
+  @@index([questionSetId, gameMode, score(sort: Desc)])
+  @@index([userId])
+}
+
+model Question {
+  id            String   @id @default(cuid())
+  question      String
+  optionA       String
+  optionB       String
+  optionC       String
+  optionD       String
+  correctAnswer Int      // 0 for A, 1 for B, 2 for C, 3 for D
+  subject       String   @default("Chemistry")  // Platform expansion: multi-subject support
+  topic         String
+  difficulty    String   // easy, medium, hard
+  explanation   String?  // shown after answering (V2 feature)
+  questionSetId String?  // links to a QuestionSet
+  createdAt     DateTime @default(now())
+  
+  questionSet   QuestionSet? @relation(fields: [questionSetId], references: [id])
+  playerAnswers PlayerAnswer[]
+
+  @@index([questionSetId])
+  @@index([subject])
+  @@index([topic])
+  @@index([difficulty])
+}
+
+model GameSession {
+  id               String         @id @default(cuid())
+  gameCode         String         @unique
+  gameMode         String         @default("classic") // classic, rush, survival, boss_battle, tower_climb
+  isMultiplayer    Boolean        @default(false)
+  hostId           String?        // Player id of the host
+  userId           String?        // link to User (null for anonymous play)
+  questionSetId    String?        // which question set was used
+  totalQuestions   Int            @default(10)
+  currentQuestion  Int            @default(0)
+  gameStatus       String         @default("waiting") // waiting, playing, finished
+  questionIds      String[]       // Array of question IDs for this game
+  questionStartedAt DateTime?     // When current question started
+  score            Int            @default(0)
+  streak           Int            @default(0)
+  maxStreak        Int            @default(0)
+  correctAnswers   Int            @default(0)
+  incorrectAnswers Int            @default(0)
+  isCompleted      Boolean        @default(false)
+  startedAt        DateTime       @default(now())
+  completedAt      DateTime?
+  
+  // Platform Expansion: Boss Battle fields
+  bossHp           Int?                          // Current boss health points
+  bossMaxHp        Int?                          // Maximum boss health points
+  isCooperative    Boolean        @default(false) // Team-based boss battle
+  currentFloor     Int            @default(0)    // Tower Climb current floor
+  
+  user             User?          @relation(fields: [userId], references: [id])
+  questionSet      QuestionSet?   @relation(fields: [questionSetId], references: [id])
+  players          Player[]
+  playerAnswers    PlayerAnswer[]
+
+  @@index([userId])
+  @@index([questionSetId])
+  @@index([gameStatus])
+}
+
+model Player {
+  id               String      @id @default(cuid())
+  gameSessionId    String
+  userId           String?     // link to User (null for anonymous)
+  nickname         String
+  score            Int         @default(0)
+  streak           Int         @default(0)
+  maxStreak        Int         @default(0)
+  correctAnswers   Int         @default(0)
+  incorrectAnswers Int         @default(0)
+  isHost           Boolean     @default(false)
+  isConnected      Boolean     @default(true)
+  currentAnswer    Int?        // Their answer for current question
+  answeredAt       DateTime?   // When they answered current question
+  joinedAt         DateTime    @default(now())
+  
+  user             User?       @relation(fields: [userId], references: [id])
+  gameSession      GameSession @relation(fields: [gameSessionId], references: [id], onDelete: Cascade)
+  playerAnswers    PlayerAnswer[]
+
+  @@index([gameSessionId])
+  @@index([userId])
+}
+
+model PlayerAnswer {
+  id             String      @id @default(cuid())
+  gameSessionId  String
+  playerId       String?
+  questionId     String
+  selectedAnswer Int
+  isCorrect      Boolean
+  timeSpent      Int         // in seconds
+  pointsEarned   Int
+  answeredAt     DateTime    @default(now())
+  
+  gameSession    GameSession @relation(fields: [gameSessionId], references: [id], onDelete: Cascade)
+  player         Player?     @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  question       Question    @relation(fields: [questionId], references: [id])
+
+  @@index([gameSessionId])
+  @@index([playerId])
+}
+
+
+
+// ─── Campaign Progress (Chamber Completion Tracking) ─────────
+model CampaignProgress {
+  id         String   @id @default(cuid())
+  userId     String
+  chamberId  String                             // e.g. "m1-c1", "m1-c2"
+  worldId    String                             // e.g. "module-1", "module-2"
+  completed  Boolean  @default(false)
+  bestScore  Int      @default(0)              // Highest score achieved in this chamber
+  xpEarned   Int      @default(0)              // Total XP earned from this chamber
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chamberId])                // One progress record per chamber per user
+  @@index([userId])
+  @@index([worldId])
+}
+
+// ─── Boss Attempts (Campaign Boss Battle Tracking) ───────────
+model BossAttempt {
+  id          String   @id @default(cuid())
+  userId      String
+  bossId      String                            // e.g. "acid-baron", "organic-overlord"
+  defeated    Boolean  @default(false)
+  damageDealt Int      @default(0)             // Total damage dealt in this attempt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([bossId])
+}
