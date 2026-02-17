@@ -3,6 +3,15 @@ import { prisma } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
+// Guest user ID for fallback
+const GUEST_USER_ID = 'guest-user-123'
+
+// XP and Coin rewards per correct answer
+const BASE_XP_PER_CORRECT = 10
+const BASE_COINS_PER_CORRECT = 5
+const STREAK_BONUS_XP = 5 // +5 XP per streak day, capped at +25
+const MAX_STREAK_BONUS_XP = 25
+
 function calculatePoints(isCorrect: boolean, streak: number): number {
   if (!isCorrect) return 0
 
@@ -19,6 +28,34 @@ function calculatePoints(isCorrect: boolean, streak: number): number {
 function calculateCoins(isCorrect: boolean, streak: number): number {
   if (!isCorrect) return 0
   return 50 + ((streak + 1) * 10) // 50 base + streak bonus
+}
+
+/**
+ * Ensure guest user exists in database
+ */
+async function ensureGuestUser() {
+  const existingUser = await prisma.user.findUnique({
+    where: { id: GUEST_USER_ID },
+  })
+
+  if (!existingUser) {
+    return await prisma.user.create({
+      data: {
+        id: GUEST_USER_ID,
+        username: 'guest',
+        displayName: 'Guest Player',
+        email: null,
+        passwordHash: '', // No password for guest
+        role: 'student',
+        totalXP: 0,
+        totalCoins: 100, // Starting coins
+        streakCount: 1,
+        currentRank: 'Bronze',
+      },
+    })
+  }
+
+  return existingUser
 }
 
 export async function POST(req: NextRequest) {
@@ -99,6 +136,41 @@ export async function POST(req: NextRequest) {
         currentQuestion: (session?.currentQuestion || 0) + 1,
       },
     })
+
+    // Update user XP and coins if correct answer (with guest fallback)
+    if (isCorrect) {
+      try {
+        // Get or create user (guest fallback)
+        let userId = session.userId
+        if (!userId) {
+          const guestUser = await ensureGuestUser()
+          userId = guestUser.id
+        }
+
+        // Get user's current streak for bonus calculation
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { streakCount: true },
+        })
+
+        // Calculate streak bonus XP (capped at +25)
+        const userStreakDays = user?.streakCount || 1
+        const streakBonusXP = Math.min(userStreakDays * STREAK_BONUS_XP, MAX_STREAK_BONUS_XP)
+        const totalXPEarned = BASE_XP_PER_CORRECT + streakBonusXP
+
+        // Update user stats
+        await prisma.user.update({
+          where: { id: userId },
+          data: {
+            totalXP: { increment: totalXPEarned },
+            totalCoins: { increment: BASE_COINS_PER_CORRECT },
+          },
+        })
+      } catch (err) {
+        console.error('Failed to update user XP/coins:', err)
+        // Continue even if user update fails
+      }
+    }
 
     return NextResponse.json({
       isCorrect,

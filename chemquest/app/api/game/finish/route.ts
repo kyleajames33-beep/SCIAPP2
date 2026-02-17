@@ -4,10 +4,47 @@ import { getSessionUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
+// Guest user ID for fallback
+const GUEST_USER_ID = 'guest-user-123'
+
+// Completion bonuses
+const QUIZ_COMPLETION_XP = 50
+const QUIZ_COMPLETION_COINS = 20
+const PERFECT_SCORE_XP_BONUS = 100
+const PERFECT_SCORE_COINS_BONUS = 50
+
+/**
+ * Ensure guest user exists in database
+ */
+async function ensureGuestUser() {
+  const existingUser = await prisma.user.findUnique({
+    where: { id: GUEST_USER_ID },
+  })
+
+  if (!existingUser) {
+    return await prisma.user.create({
+      data: {
+        id: GUEST_USER_ID,
+        username: 'guest',
+        displayName: 'Guest Player',
+        email: null,
+        passwordHash: '', // No password for guest
+        role: 'student',
+        totalXP: 0,
+        totalCoins: 100, // Starting coins
+        streakCount: 1,
+        currentRank: 'Bronze',
+      },
+    })
+  }
+
+  return existingUser
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { sessionId, coinsEarned, floorReached, chamberId, worldId, bossId } = body
+    const { sessionId, coinsEarned, floorReached, chamberId, worldId, bossId, bossDefeated, gemsEarned, gemsCollected } = body
 
     if (!sessionId) {
       return NextResponse.json(
@@ -52,7 +89,12 @@ export async function POST(req: NextRequest) {
     const timeTaken = Math.round((now.getTime() - new Date(updatedSession.startedAt).getTime()) / 1000)
 
     // Get authenticated user (if any)
-    const user = await getSessionUser()
+    let user = await getSessionUser()
+
+    // If no authenticated user, use guest user fallback
+    if (!user) {
+      user = await ensureGuestUser()
+    }
 
     // Track if new high floor was achieved
     let newHighFloor = false
@@ -62,7 +104,17 @@ export async function POST(req: NextRequest) {
     let isNewHighScore = false
     let previousBestScore = 0
 
-    // If user is authenticated, update their stats and create leaderboard entry
+    // Calculate completion bonuses
+    const isPerfectScore = accuracyPercent === 100 && totalAnswered > 0
+    let completionXP = QUIZ_COMPLETION_XP
+    let completionCoins = QUIZ_COMPLETION_COINS
+
+    if (isPerfectScore) {
+      completionXP += PERFECT_SCORE_XP_BONUS
+      completionCoins += PERFECT_SCORE_COINS_BONUS
+    }
+
+    // User exists (either authenticated or guest) - update their stats
     if (user) {
       // Check for previous best score for this mode
       const previousBestEntry = await prisma.leaderboardEntry.findFirst({
@@ -77,20 +129,22 @@ export async function POST(req: NextRequest) {
 
       previousBestScore = previousBestEntry?.score || 0
       isNewHighScore = (updatedSession.score || 0) > previousBestScore
-      // Update user stats including lifetimeEarnings
+
+      // Update user stats including XP, coins, and lifetimeEarnings
       await prisma.user.update({
         where: { id: user.id },
         data: {
-          totalCoins: { increment: coinsEarned || 0 },
+          totalCoins: { increment: (coinsEarned || 0) + completionCoins },
+          totalXP: { increment: completionXP },
           totalScore: { increment: updatedSession.score || 0 },
           gamesPlayed: { increment: 1 },
           totalCorrect: { increment: updatedSession.correctAnswers || 0 },
           totalIncorrect: { increment: updatedSession.incorrectAnswers || 0 },
           // Update lifetimeEarnings (never resets)
-          lifetimeEarnings: { increment: BigInt(coinsEarned || 0) },
+          lifetimeEarnings: { increment: BigInt((coinsEarned || 0) + completionCoins) },
           // Only update bestStreak if the new one is higher
           bestStreak: {
-            set: Math.max(user.bestStreak, updatedSession.maxStreak || 0)
+            set: Math.max(user.bestStreak || 0, updatedSession.maxStreak || 0)
           }
         },
       })
@@ -139,7 +193,7 @@ export async function POST(req: NextRequest) {
           },
         })
 
-        const bossDefeated = (updatedSession.bossHp ?? 0) <= 0
+        const bossWasDefeated = bossDefeated || (updatedSession.bossHp ?? 0) <= 0
         const currentBestTime = existingProgress?.bestTime || 999999
 
         await prisma.userProgress.upsert({
@@ -149,15 +203,15 @@ export async function POST(req: NextRequest) {
           create: {
             userId: user.id,
             mode: 'boss_battle',
-            highestFloor: bossDefeated ? 1 : 0,  // Use as "bosses defeated" counter
-            bestTime: bossDefeated ? timeTaken : 999999,
+            highestFloor: bossWasDefeated ? 1 : 0,  // Use as "bosses defeated" counter
+            bestTime: bossWasDefeated ? timeTaken : 999999,
             totalRuns: 1,
           },
           update: {
-            highestFloor: bossDefeated 
+            highestFloor: bossWasDefeated 
               ? { increment: 1 } 
               : existingProgress?.highestFloor || 0,
-            bestTime: bossDefeated && timeTaken < currentBestTime 
+            bestTime: bossWasDefeated && timeTaken < currentBestTime 
               ? timeTaken 
               : currentBestTime,
             totalRuns: { increment: 1 },
@@ -219,12 +273,12 @@ export async function POST(req: NextRequest) {
 
       // Track boss attempts if bossId provided
       if (bossId) {
-        const bossDefeated = (updatedSession.bossHp ?? 1) <= 0
+        const bossWasDefeated = bossDefeated || (updatedSession.bossHp ?? 1) <= 0
         await prisma.bossAttempt.create({
           data: {
             userId: user.id,
             bossId,
-            defeated: bossDefeated,
+            defeated: bossWasDefeated,
             damageDealt: (updatedSession.bossMaxHp || 0) - (updatedSession.bossHp || 0),
           },
         })
@@ -240,7 +294,9 @@ export async function POST(req: NextRequest) {
         maxStreak: updatedSession.maxStreak || 0,
         accuracy: accuracyPercent,
         timeTaken,
-        coinsEarned: coinsEarned || 0,
+        coinsEarned: (coinsEarned || 0) + completionCoins,
+        xpEarned: completionXP,
+        isPerfectScore,
         isAuthenticated: !!user,
         // High score tracking
         isNewHighScore,
@@ -250,7 +306,7 @@ export async function POST(req: NextRequest) {
         newHighFloor,
         previousHighFloor,
         // Boss battle specific
-        bossDefeated: (updatedSession.bossHp ?? 1) <= 0,
+        bossDefeated: bossDefeated || (updatedSession.bossHp ?? 1) <= 0,
       }
     })
   } catch (error) {
