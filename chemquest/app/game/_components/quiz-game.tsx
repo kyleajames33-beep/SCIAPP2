@@ -52,6 +52,7 @@ import { TowerDisplay } from './tower-display'
 // Sound effects
 import { playSound } from '@/lib/sounds'
 import { SoundToggle } from './SoundToggle'
+import { XPPopUp } from '@/components/XPPopUp'
 
 type GameState = 'mode-select' | 'lobby' | 'playing' | 'results'
 
@@ -90,7 +91,18 @@ export default function QuizGame() {
   const [coinsEarned, setCoinsEarned] = useState(0) // Track coins earned this session
   const [authenticatedUser, setAuthenticatedUser] = useState<{ id: string; username: string; displayName: string; totalCoins: number } | null>(null)
   const [currentExplanation, setCurrentExplanation] = useState<string | null>(null) // Explanation for current question
-  const [showXP, setShowXP] = useState(false) // XP pop-up animation state
+  const [showXP, setShowXP] = useState(false) // Small in-game XP popup animation
+  
+  // XP Popup state (end-of-game modal)
+  const [showXPPopup, setShowXPPopup] = useState(false)
+  const [xpData, setXpData] = useState<{
+    xpEarned: number
+    newTotalXP: number
+    newRank: string
+    currentStreak: number
+    rankChanged: boolean
+    previousRank?: string
+  } | null>(null)
   
   // Boss Battle state
   const [bossHp, setBossHp] = useState<number>(1000)
@@ -465,7 +477,7 @@ export default function QuizGame() {
       setQuestionsAnswered(prev => prev + 1)
       
       if (isCorrect) {
-        // Show XP pop-up animation
+        // Show XP pop-up animation (small in-game XP indicator)
         setShowXP(true)
         setTimeout(() => setShowXP(false), 1000)
         
@@ -1106,6 +1118,45 @@ export default function QuizGame() {
     } catch (error) {
       console.error('Finish game error:', error)
     }
+
+    // Call the quiz completion API to update XP, Streaks, and Ranks
+    try {
+      // Use authenticated user's ID or a test ID for development
+      const userId = authenticatedUser?.id || 'test-user-id'
+      const totalQuestions = correctAnswers + incorrectAnswers
+
+      const quizCompleteResponse = await fetch('/api/quiz/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          correctAnswers,
+          totalQuestions,
+        }),
+      })
+
+      if (quizCompleteResponse.ok) {
+        const quizData = await quizCompleteResponse.json()
+        
+        // Store XP data for the popup
+        setXpData({
+          xpEarned: quizData.xpEarned,
+          newTotalXP: quizData.newTotalXP,
+          newRank: quizData.newRank,
+          currentStreak: quizData.currentStreak,
+          rankChanged: quizData.rankChanged,
+          previousRank: quizData.previousRank,
+        })
+        
+        // Show the XP popup
+        setShowXPPopup(true)
+      } else {
+        console.error('Quiz completion API error:', await quizCompleteResponse.text())
+      }
+    } catch (error) {
+      console.error('Quiz completion error:', error)
+    }
+
     setGameState('results')
   }
 
@@ -1574,6 +1625,18 @@ export default function QuizGame() {
             />
           </>
         )}
+
+        {/* XP Popup */}
+        <XPPopUp
+          isOpen={showXPPopup}
+          onClose={() => setShowXPPopup(false)}
+          xpEarned={xpData?.xpEarned || 0}
+          newTotalXP={xpData?.newTotalXP || 0}
+          newRank={xpData?.newRank || 'Bronze'}
+          currentStreak={xpData?.currentStreak || 0}
+          rankChanged={xpData?.rankChanged || false}
+          previousRank={xpData?.previousRank}
+        />
       </div>
     </motion.div>
   )

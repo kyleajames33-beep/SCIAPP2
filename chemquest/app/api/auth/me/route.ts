@@ -28,6 +28,8 @@ export async function GET() {
         rank: user.rank,
         campaignXp: user.campaignXp,
         subscriptionTier: user.subscriptionTier,
+        currentRank: user.currentRank,
+        totalXP: user.totalXP,
       },
       // Keep flat fields for backward compatibility
       userId: user.id,

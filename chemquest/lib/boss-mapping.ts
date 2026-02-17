@@ -17,7 +17,8 @@ export type RealBossId =
   | "equilibrium-emperor"
   | "kinetic-king"
   | "atomic-archmage"
-  | "solution-sovereign";
+  | "solution-sovereign"
+  | "chemical-overlord";
 
 // Campaign boss IDs used in the campaign/world data
 export type CampaignBossId =
@@ -28,7 +29,8 @@ export type CampaignBossId =
   | "equilibrium-master"
   | "kinetic-emperor"
   | "atomic-warlock"
-  | "solution-tyrant";
+  | "solution-tyrant"
+  | "chemical-overlord";
 
 /**
  * Mapping from campaign boss IDs to real boss IDs
@@ -66,6 +68,9 @@ const BOSS_ID_MAPPING: Record<CampaignBossId, RealBossId> = {
   
   // Module 8: Organic Chemistry → Organic Chemistry
   "solution-tyrant": "organic-overlord",
+  
+  // World 9: Final Challenge → Chemical Overlord
+  "chemical-overlord": "chemical-overlord",
 };
 
 /**
@@ -80,6 +85,7 @@ export const VALID_BOSS_IDS: Set<RealBossId> = new Set([
   "kinetic-king",
   "atomic-archmage",
   "solution-sovereign",
+  "chemical-overlord",
 ]);
 
 /**
@@ -131,6 +137,7 @@ export function getBossDisplayName(campaignBossId: string): string {
     "kinetic-emperor": "The Kinetic Emperor",
     "atomic-warlock": "The Atomic Warlock",
     "solution-tyrant": "The Solution Tyrant",
+    "chemical-overlord": "Chemical Overlord",
   };
   
   return displayNames[campaignBossId] || "Unknown Boss";
@@ -147,7 +154,7 @@ export function handleBossNotFound(
   onRedirect?: () => void
 ): void {
   toast.error(`Boss "${bossId}" not found!`, {
-    description: "This boss hasn't been implemented yet. Try the Acid Baron!",
+    description: "This boss hasn't been implemented yet. Try the Acid Baron or Chemical Overlord!",
   });
   
   if (onRedirect) {

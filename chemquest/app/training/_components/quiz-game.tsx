@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { motion, useAnimation } from 'framer-motion'
+import { motion, useAnimation, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import confetti from 'canvas-confetti'
 import { GameMode, Question, PowerUpId } from '@/lib/game-types'
@@ -19,6 +19,7 @@ import { ShopPowerUpBar } from './ShopPowerUpBar'
 import { PowerUpShop } from './PowerUpShop'
 import { QuestionCard } from './QuestionCard'
 import { CoinAnimation } from './CoinAnimation'
+import { XPPopUp } from '@/components/XPPopUp'
 
 // Boss Battle components
 import { BossHpBar } from '@/app/battle/_components/boss-hp-bar'
@@ -55,7 +56,19 @@ import { SoundToggle } from './SoundToggle'
 
 type GameState = 'mode-select' | 'lobby' | 'playing' | 'results'
 
-export default function QuizGame() {
+interface QuizGameProps {
+  moduleId?: number;
+  chamberId?: string;
+  moduleName?: string;
+  chamberName?: string;
+}
+
+export default function QuizGame({ 
+  moduleId, 
+  chamberId, 
+  moduleName, 
+  chamberName 
+}: QuizGameProps = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const subjectFromUrl = searchParams.get('subject') || 'Chemistry'
@@ -160,6 +173,17 @@ export default function QuizGame() {
     previousBestScore: 0
   })
 
+  // XP Popup state
+  const [showXPPopup, setShowXPPopup] = useState(false)
+  const [xpData, setXpData] = useState<{
+    xpEarned: number
+    newTotalXP: number
+    newRank: string
+    currentStreak: number
+    rankChanged: boolean
+    previousRank?: string
+  } | null>(null)
+
   // Refs to avoid stale closures in timer callbacks
   const livesRef = useRef(lives)
   const gameModeRef = useRef(gameMode)
@@ -251,6 +275,37 @@ export default function QuizGame() {
     return () => clearInterval(timer)
   }, [gameState, isAnswered, timeLeft, isTimeFrozen, handleTimeOut])
 
+  // Auto-start game when moduleId/chamberId are provided (from campaign chamber navigation)
+  const campaignAutoStarted = useRef(false)
+  useEffect(() => {
+    if (!moduleId || !chamberId || campaignAutoStarted.current) return
+    campaignAutoStarted.current = true
+    setIsLoading(true)
+    fetch(`/api/questions/module?worldId=${moduleId}&chamberId=${chamberId}&limit=10`)
+      .then(r => {
+        if (!r.ok) throw new Error('Failed to load questions')
+        return r.json()
+      })
+      .then(moduleData => {
+        setQuestions(moduleData.questions || [])
+        setBaseTime(30)
+        setTimeLeft(30)
+        setSessionId(`module-${moduleId}-${chamberId}-${Date.now()}`)
+        setGameCode('')
+        setCoins(INITIAL_COINS)
+        setCoinsEarned(0)
+        setGameState('playing')
+        setQuestionStartTime(Date.now())
+      })
+      .catch(error => {
+        toast.error('Failed to load questions. Please try again.')
+        console.error('Campaign auto-start error:', error)
+        campaignAutoStarted.current = false
+      })
+      .finally(() => setIsLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moduleId, chamberId])
+
   // Auto-trigger game end when boss is defeated
   useEffect(() => {
     if (gameMode === 'boss_battle' && bossDefeated && gameState === 'playing') {
@@ -275,15 +330,31 @@ export default function QuizGame() {
   const startGame = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch('/api/game/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameMode, questionSetId, subject: selectedSubject }),
-      })
-
-      if (!response?.ok) throw new Error('Failed to start game')
-
-      const data = await response.json()
+      let data: any;
+      
+      // If moduleId and chamberId are provided, fetch from module API
+      if (moduleId && chamberId) {
+        const response = await fetch(`/api/questions/module?worldId=${moduleId}&chamberId=${chamberId}&limit=10`)
+        if (!response.ok) throw new Error('Failed to load module questions')
+        const moduleData = await response.json()
+        
+        data = {
+          questions: moduleData.questions,
+          config: { timePerQuestion: 30, lives: 3 },
+          gameCode: '',
+          sessionId: `module-${moduleId}-${chamberId}-${Date.now()}`,
+        }
+      } else {
+        // Use standard game start API
+        const response = await fetch('/api/game/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gameMode, questionSetId, subject: selectedSubject }),
+        })
+        if (!response?.ok) throw new Error('Failed to start game')
+        data = await response.json()
+      }
+      
       setGameCode(data?.gameCode || '')
       setSessionId(data?.sessionId || '')
       setQuestions(data?.questions || [])
@@ -1101,6 +1172,45 @@ export default function QuizGame() {
     } catch (error) {
       console.error('Finish game error:', error)
     }
+
+    // Call the quiz completion API to update XP, Streaks, and Ranks
+    try {
+      // Use authenticated user's ID or a test ID for development
+      const userId = authenticatedUser?.id || 'test-user-id'
+      const totalQuestions = correctAnswers + incorrectAnswers
+
+      const quizCompleteResponse = await fetch('/api/quiz/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          correctAnswers,
+          totalQuestions,
+        }),
+      })
+
+      if (quizCompleteResponse.ok) {
+        const quizData = await quizCompleteResponse.json()
+        
+        // Store XP data for the popup
+        setXpData({
+          xpEarned: quizData.xpEarned,
+          newTotalXP: quizData.newTotalXP,
+          newRank: quizData.newRank,
+          currentStreak: quizData.currentStreak,
+          rankChanged: quizData.rankChanged,
+          previousRank: quizData.previousRank,
+        })
+        
+        // Show the XP popup
+        setShowXPPopup(true)
+      } else {
+        console.error('Quiz completion API error:', await quizCompleteResponse.text())
+      }
+    } catch (error) {
+      console.error('Quiz completion error:', error)
+    }
+
     setGameState('results')
   }
 
@@ -1554,6 +1664,18 @@ export default function QuizGame() {
             />
           </>
         )}
+
+        {/* XP Popup */}
+        <XPPopUp
+          isOpen={showXPPopup}
+          onClose={() => setShowXPPopup(false)}
+          xpEarned={xpData?.xpEarned || 0}
+          newTotalXP={xpData?.newTotalXP || 0}
+          newRank={xpData?.newRank || 'Bronze'}
+          currentStreak={xpData?.currentStreak || 0}
+          rankChanged={xpData?.rankChanged || false}
+          previousRank={xpData?.previousRank}
+        />
       </div>
     </motion.div>
   )

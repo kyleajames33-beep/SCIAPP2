@@ -67,10 +67,16 @@ export async function POST(request: NextRequest) {
       "equilibrium-emperor": 5,
       "kinetic-king": 6,
       "atomic-archmage": 7,
-      "solution-sovereign": 8
+      "solution-sovereign": 8,
+      "chemical-overlord": 9
     };
     const bossLevel = bossLevelMap[bossId] || 1;
-    const xpEarned = calculateBossXP(damageDealt, bossLevel, streak, timeRemaining);
+    
+    // Chemical Overlord: Special +100 XP bonus for victory
+    const isChemicalOverlord = bossId === "chemical-overlord";
+    const baseXp = calculateBossXP(damageDealt, bossLevel, streak, timeRemaining);
+    const xpEarned = isChemicalOverlord && victory ? baseXp + 100 : baseXp;
+    
     const coinsEarned = victory
       ? Math.floor(damageDealt * 0.3) + (correctAnswers * 10) + (streak * 5)
       : Math.floor(damageDealt * 0.1);
@@ -81,6 +87,7 @@ export async function POST(request: NextRequest) {
       where: { id: user.id },
       data: {
         totalScore: { increment: xpEarned },
+        totalXP: { increment: xpEarned },
         totalCoins: { increment: coinsEarned },
         gems: { increment: gemsEarned },
         lifetimeEarnings: { increment: BigInt(coinsEarned) },

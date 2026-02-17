@@ -59,7 +59,8 @@ const BOSS_DATA: Record<string, { name: string; maxHp: number; element: string }
   "equilibrium-emperor": { name: "The Equilibrium Emperor", maxHp: 1050, element: "Equilibrium" },
   "kinetic-king": { name: "The Kinetic King", maxHp: 950, element: "Kinetics" },
   "atomic-archmage": { name: "The Atomic Archmage", maxHp: 1150, element: "Atomic Structure" },
-  "solution-sovereign": { name: "The Solution Sovereign", maxHp: 1000, element: "Solutions" }
+  "solution-sovereign": { name: "The Solution Sovereign", maxHp: 1000, element: "Solutions" },
+  "chemical-overlord": { name: "Chemical Overlord", maxHp: 100, element: "Final Challenge" }
 };
 
 const SHIELD_PHASES = [0.75, 0.5, 0.25]; // HP percentages where shields trigger
@@ -120,8 +121,12 @@ export default function BossBattlePage() {
       shieldHp: 0
     });
 
-    // Fetch questions
-    fetch("/api/questions?count=15&difficulty=medium")
+    // Fetch questions - World 9 uses specific boss questions
+    const questionUrl = resolvedBossId === "chemical-overlord" 
+      ? "/api/questions/world9" 
+      : "/api/questions?count=15&difficulty=medium";
+    
+    fetch(questionUrl)
       .then(res => res.json())
       .then(data => {
         setQuestions(data.questions || []);
@@ -176,6 +181,10 @@ export default function BossBattlePage() {
 
   const calculateDamage = (isCorrect: boolean, streak: number): number => {
     if (!isCorrect) return 0;
+    // Chemical Overlord: Fixed 10 damage per correct answer
+    if (resolvedBossId === "chemical-overlord") {
+      return 10;
+    }
     const baseDamage = 50;
     const streakBonus = streak * 10;
     const upgradeBonus = 0; // Would come from user upgrades
@@ -565,23 +574,56 @@ export default function BossBattlePage() {
             exit={{ opacity: 0 }}
             className="max-w-2xl mx-auto text-center"
           >
-            <Card className="bg-black/50 border-yellow-500/50">
+            <Card className={`bg-black/50 ${resolvedBossId === "chemical-overlord" ? "border-red-500/50" : "border-yellow-500/50"}`}>
               <CardContent className="p-8">
                 <motion.div
                   animate={{ y: [0, -10, 0] }}
                   transition={{ repeat: Infinity, duration: 1 }}
                 >
-                  <Trophy className="w-24 h-24 text-yellow-400 mx-auto mb-6" />
+                  {resolvedBossId === "chemical-overlord" ? (
+                    <div className="relative">
+                      <Skull className="w-24 h-24 text-red-500 mx-auto mb-6" />
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.5, type: "spring" }}
+                        className="absolute -top-2 -right-2 bg-yellow-500 text-black text-xs font-bold px-2 py-1 rounded-full"
+                      >
+                        BOSS DEFEATED
+                      </motion.div>
+                    </div>
+                  ) : (
+                    <Trophy className="w-24 h-24 text-yellow-400 mx-auto mb-6" />
+                  )}
                 </motion.div>
-                <h2 className="text-3xl font-bold text-white mb-2">Victory!</h2>
+                <h2 className="text-3xl font-bold text-white mb-2">
+                  {resolvedBossId === "chemical-overlord" ? "VICTORY!" : "Victory!"}
+                </h2>
                 <p className="text-gray-400 mb-6">
                   You defeated {boss.name}!
                 </p>
+                {resolvedBossId === "chemical-overlord" && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="bg-red-500/20 border border-red-500/30 rounded-lg p-4 mb-6"
+                  >
+                    <div className="flex items-center justify-center gap-2 text-red-400 font-bold text-lg">
+                      <Star className="w-6 h-6" />
+                      +100 XP BONUS
+                      <Star className="w-6 h-6" />
+                    </div>
+                    <p className="text-sm text-red-300 mt-1">One-time reward for defeating the Chemical Overlord!</p>
+                  </motion.div>
+                )}
                 {rewards && (
                   <div className="grid grid-cols-3 gap-4 mb-6">
                     <div className="bg-purple-500/20 rounded-lg p-3">
                       <Star className="w-6 h-6 text-purple-400 mx-auto mb-1" />
-                      <div className="text-xl font-bold text-white">{rewards.xp}</div>
+                      <div className="text-xl font-bold text-white">
+                        {rewards.xp + (resolvedBossId === "chemical-overlord" ? 100 : 0)}
+                      </div>
                       <div className="text-xs text-gray-400">XP</div>
                     </div>
                     <div className="bg-yellow-500/20 rounded-lg p-3">
@@ -604,9 +646,9 @@ export default function BossBattlePage() {
                 <Button
                   size="lg"
                   onClick={() => router.push("/campaign")}
-                  className="bg-yellow-600 hover:bg-yellow-700"
+                  className={resolvedBossId === "chemical-overlord" ? "bg-red-600 hover:bg-red-700" : "bg-yellow-600 hover:bg-yellow-700"}
                 >
-                  Continue Campaign
+                  {resolvedBossId === "chemical-overlord" ? "Claim Victory" : "Continue Campaign"}
                 </Button>
               </CardContent>
             </Card>

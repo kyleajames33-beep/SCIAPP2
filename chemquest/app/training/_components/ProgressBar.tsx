@@ -35,7 +35,7 @@ export function ProgressBar({
   const modeInfo = getModeDisplay(gameMode)
   const progress = gameMode === 'survival' 
     ? 100 // Always full for survival
-    : ((currentQuestionIndex + 1) / totalQuestions) * 100
+    : totalQuestions > 0 ? ((currentQuestionIndex + 1) / totalQuestions) * 100 : 0
 
   return (
     <>

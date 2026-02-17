@@ -24,6 +24,8 @@ export interface SessionUser {
   rank: string;
   campaignXp: number;
   subscriptionTier: string;
+  currentRank: string;
+  totalXP: number;
 }
 
 export interface JWTPayload {
@@ -117,6 +119,8 @@ export async function getSessionUser(): Promise<SessionUser | null> {
         rank: true,
         campaignXp: true,
         subscriptionTier: true,
+        currentRank: true,
+        totalXP: true,
       },
     });
 
