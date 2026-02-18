@@ -1,6 +1,10 @@
 {
+  "version": 2,
   "framework": "nextjs",
-  "installCommand": "npm install --prefix chemquest",
-  "buildCommand": "cd chemquest && npx prisma generate && next build",
-  "outputDirectory": "chemquest/.next"
+  "installCommand": "cd chemquest && npm install",
+  "buildCommand": "cd chemquest && npx prisma generate && npx next build",
+  "outputDirectory": "chemquest/.next",
+  "env": {
+    "DATABASE_URL": "file:./data/app.db"
+  }
 }
