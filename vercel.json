@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "framework": "nextjs",
+  "installCommand": "cd chemquest && npm install",
+  "buildCommand": "cd chemquest && npx prisma generate && npx next build",
+  "outputDirectory": "chemquest/.next",
+  "env": {
+    "JWT_SECRET": "@jwt-secret"
+  }
+}

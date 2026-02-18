@@ -8,7 +8,6 @@ const nextConfig = {
     outputFileTracingRoot: path.join(__dirname, '../'),
     outputFileTracingIncludes: {
       '/api/**': ['./prisma/dev.db'],
-      '/api/auth/**': ['./prisma/dev.db'],
     },
   },
   eslint: {

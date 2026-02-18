@@ -45,13 +45,12 @@ export async function POST(request: Request) {
         username: username.toLowerCase(),
         displayName,
       },
-
       { status: 201 }
     );
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error('[REGISTER] Error:', error);
     return NextResponse.json(
-      { error: 'Failed to register user' },
+      { error: 'Registration failed' },
       { status: 500 }
     );
   }

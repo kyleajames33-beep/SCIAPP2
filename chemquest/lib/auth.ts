@@ -1,6 +1,5 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
-import { prisma } from './db';
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'chemquest-secret-key-change-in-production'
@@ -83,7 +82,7 @@ export async function clearAuthCookie(): Promise<void> {
 
 /**
  * Get the current session user from the auth cookie
- * Returns null if not authenticated
+ * TEMPORARY: Returns mock user data from JWT without database lookup
  */
 export async function getSessionUser(): Promise<SessionUser | null> {
   try {
@@ -99,33 +98,22 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       return null;
     }
 
-    // Fetch fresh user data from database
-    const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
-      select: {
-        id: true,
-        username: true,
-        displayName: true,
-        email: true,
-        role: true,
-        totalCoins: true,
-        totalScore: true,
-        gamesPlayed: true,
-        bestStreak: true,
-        prestigeLevel: true,
-        lifetimeEarnings: true,
-        rank: true,
-        campaignXp: true,
-        subscriptionTier: true,
-      },
-    });
-
-    if (!user) return null;
-    
-    // Convert BigInt to number for JSON serialization
+    // TEMPORARY: Return mock user data from JWT (no database lookup)
     return {
-      ...user,
-      lifetimeEarnings: Number(user.lifetimeEarnings),
+      id: payload.userId,
+      username: payload.username,
+      displayName: payload.displayName,
+      email: null,
+      role: payload.role,
+      totalCoins: 0,
+      totalScore: 0,
+      gamesPlayed: 0,
+      bestStreak: 0,
+      prestigeLevel: 0,
+      lifetimeEarnings: 0,
+      rank: 'Bronze',
+      campaignXp: 0,
+      subscriptionTier: 'free',
     };
   } catch {
     return null;

@@ -50,10 +50,9 @@ export async function POST(request: Request) {
       }
     })
 
-    // Bulk insert questions
+    // Bulk insert questions (SQLite doesn't support skipDuplicates)
     const result = await prisma.question.createMany({
       data: transformedQuestions,
-      skipDuplicates: true,
     })
 
     return NextResponse.json({
