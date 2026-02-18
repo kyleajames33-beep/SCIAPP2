@@ -47,7 +47,8 @@ export async function POST(
     }
 
     // Get current question
-    const questionId = session.questionIds[session.currentQuestion]
+    const sessionQIds = JSON.parse(session.questionIds || '[]') as string[]
+    const questionId = sessionQIds[session.currentQuestion]
     const question = await prisma.question.findUnique({ where: { id: questionId } })
 
     if (!question) {

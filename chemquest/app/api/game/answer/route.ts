@@ -46,7 +46,8 @@ export async function POST(req: NextRequest) {
     }
 
     // BUG-3 FIX: Validate that questionId is in the session's questionIds
-    if (session.questionIds.length > 0 && !session.questionIds.includes(questionId)) {
+    const sessionQuestionIds = JSON.parse(session.questionIds || '[]') as string[]
+    if (sessionQuestionIds.length > 0 && !sessionQuestionIds.includes(questionId)) {
       return NextResponse.json(
         { error: 'Question not part of this session' },
         { status: 400 }

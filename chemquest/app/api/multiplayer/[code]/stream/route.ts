@@ -105,9 +105,10 @@ export async function GET(
 
           // Get current question if game is playing
           let currentQuestion = null
-          if (session.gameStatus === 'playing' && session.questionIds[session.currentQuestion]) {
+          const streamQIds = JSON.parse(session.questionIds || '[]') as string[]
+          if (session.gameStatus === 'playing' && streamQIds[session.currentQuestion]) {
             const q = await prisma.question.findUnique({
-              where: { id: session.questionIds[session.currentQuestion] },
+              where: { id: streamQIds[session.currentQuestion] },
             })
             if (q) {
               currentQuestion = {

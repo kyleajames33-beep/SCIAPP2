@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(node -e:*)",
+      "Bash(npm ls:*)",
+      "Bash(echo:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(NODE_ENV=development node node_modules/typescript/bin/tsc:*)"
+    ]
+  }
+}

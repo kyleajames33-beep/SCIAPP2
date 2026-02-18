@@ -1,10 +1,9 @@
 generator client {
     provider = "prisma-client-js"
-    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
 }
 
 datasource db {
-    provider = "postgresql"
+    provider = "sqlite"
     url      = env("DATABASE_URL")
 }
 
@@ -23,7 +22,7 @@ model User {
   bestStreak      Int       @default(0)
   totalCorrect    Int       @default(0)
   totalIncorrect  Int       @default(0)
-  
+
   // Platform Expansion: Kit Mode & Tower Climb
   gems            Int       @default(0)         // Premium currency for special upgrades
   prestigeLevel   Int       @default(0)         // Prestige tier (reset progress for bonuses)
@@ -41,7 +40,7 @@ model User {
   hairColor       String    @default("red")      // "blue" | "red" | "purple" | "green"
   weaponType      String    @default("hammer")   // "sword" | "hammer" | "staff"
   accessories     String    @default("")         // comma-separated accessory IDs
-  ownedItems      String[]  @default(["red", "hammer", "strong"]) // Purchased hair colors, weapons, body types
+  ownedItems      String    @default("[]")       // JSON array: purchased hair colors, weapons, body types
 
   // Campaign & Subscription (Phase 6: CoD Model)
   rank             String    @default("Hydrogen")  // Element-based rank progression
@@ -72,7 +71,7 @@ model UserUpgrade {
   level      Int      @default(1)             // Current level of this upgrade
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  
+
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, upgradeId])               // One upgrade per type per user
@@ -94,7 +93,7 @@ model UserProgress {
 
   @@unique([userId, mode])                    // One progress record per mode per user
   @@index([userId])
-  @@index([mode, highestFloor(sort: Desc)])   // Leaderboard queries
+  @@index([mode, highestFloor])
 }
 
 // ─── Question Sets (teacher-created) ─────────────────────────
@@ -130,7 +129,7 @@ model LeaderboardEntry {
 
   user          User      @relation(fields: [userId], references: [id])
 
-  @@index([questionSetId, gameMode, score(sort: Desc)])
+  @@index([questionSetId, gameMode, score])
   @@index([userId])
 }
 
@@ -148,7 +147,7 @@ model Question {
   explanation   String?  // shown after answering (V2 feature)
   questionSetId String?  // links to a QuestionSet
   createdAt     DateTime @default(now())
-  
+
   questionSet   QuestionSet? @relation(fields: [questionSetId], references: [id])
   playerAnswers PlayerAnswer[]
 
@@ -169,7 +168,7 @@ model GameSession {
   totalQuestions   Int            @default(10)
   currentQuestion  Int            @default(0)
   gameStatus       String         @default("waiting") // waiting, playing, finished
-  questionIds      String[]       // Array of question IDs for this game
+  questionIds      String         @default("[]")      // JSON array of question IDs for this game
   questionStartedAt DateTime?     // When current question started
   score            Int            @default(0)
   streak           Int            @default(0)
@@ -179,13 +178,13 @@ model GameSession {
   isCompleted      Boolean        @default(false)
   startedAt        DateTime       @default(now())
   completedAt      DateTime?
-  
+
   // Platform Expansion: Boss Battle fields
   bossHp           Int?                          // Current boss health points
   bossMaxHp        Int?                          // Maximum boss health points
   isCooperative    Boolean        @default(false) // Team-based boss battle
   currentFloor     Int            @default(0)    // Tower Climb current floor
-  
+
   user             User?          @relation(fields: [userId], references: [id])
   questionSet      QuestionSet?   @relation(fields: [questionSetId], references: [id])
   players          Player[]
@@ -211,7 +210,7 @@ model Player {
   currentAnswer    Int?        // Their answer for current question
   answeredAt       DateTime?   // When they answered current question
   joinedAt         DateTime    @default(now())
-  
+
   user             User?       @relation(fields: [userId], references: [id])
   gameSession      GameSession @relation(fields: [gameSessionId], references: [id], onDelete: Cascade)
   playerAnswers    PlayerAnswer[]
@@ -230,7 +229,7 @@ model PlayerAnswer {
   timeSpent      Int         // in seconds
   pointsEarned   Int
   answeredAt     DateTime    @default(now())
-  
+
   gameSession    GameSession @relation(fields: [gameSessionId], references: [id], onDelete: Cascade)
   player         Player?     @relation(fields: [playerId], references: [id], onDelete: Cascade)
   question       Question    @relation(fields: [questionId], references: [id])
@@ -238,8 +237,6 @@ model PlayerAnswer {
   @@index([gameSessionId])
   @@index([playerId])
 }
-
-
 
 // ─── Campaign Progress (Chamber Completion Tracking) ─────────
 model CampaignProgress {

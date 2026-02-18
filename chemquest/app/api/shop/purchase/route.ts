@@ -42,7 +42,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already owns this item
-    if (currentUser.ownedItems.includes(itemId)) {
+    const ownedItemsArr = JSON.parse(currentUser.ownedItems || '[]') as string[]
+    if (ownedItemsArr.includes(itemId)) {
       return NextResponse.json(
         { error: "Item already owned" },
         { status: 409 }
@@ -63,11 +64,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Perform purchase: deduct coins and add to owned items
+    const newOwnedItems = JSON.stringify([...ownedItemsArr, itemId])
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
         totalCoins: { decrement: item.price },
-        ownedItems: { push: itemId },
+        ownedItems: newOwnedItems,
       },
     });
 
@@ -81,7 +83,7 @@ export async function POST(request: NextRequest) {
         icon: item.icon,
       },
       remainingCoins: updatedUser.totalCoins,
-      ownedItems: updatedUser.ownedItems,
+      ownedItems: JSON.parse(updatedUser.ownedItems || '[]'),
     });
   } catch (error) {
     console.error("Shop purchase error:", error);

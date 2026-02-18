@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
         gameMode,
         isMultiplayer: true,
         totalQuestions: config.questions,
-        questionIds,
+        questionIds: JSON.stringify(questionIds),
         gameStatus: 'waiting',
         // Boss Battle specific fields
         bossHp: isBossBattle ? config.bossHp : null,

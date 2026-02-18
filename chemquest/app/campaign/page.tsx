@@ -317,12 +317,13 @@ export default function CampaignPage() {
                         return (
                           <div
                             key={chamber.id}
+                            onClick={() => !chamberLocked && router.push(`/training/${world.id}/${chamber.id}`)}
                             className={`p-3 rounded-lg border ${
                               prog?.completed
                                 ? 'bg-green-500/10 border-green-500/30'
                                 : chamberLocked
-                                ? 'bg-white/5 border-white/10 opacity-50'
-                                : 'bg-white/5 border-white/20 hover:bg-white/10'
+                                ? 'bg-white/5 border-white/10 opacity-50 cursor-not-allowed'
+                                : 'bg-white/5 border-white/20 hover:bg-white/10 cursor-pointer'
                             } transition-all`}
                           >
                             <div className="flex items-center justify-between">

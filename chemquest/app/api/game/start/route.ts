@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     const shuffled = allQuestions?.sort(() => 0.5 - Math.random())
     const selectedQuestions = shuffled?.slice(0, totalQuestions) || []
     
-    // Store question IDs for the session
+    // Store question IDs for the session (as JSON string for SQLite)
     const questionIds = selectedQuestions.map(q => q.id)
 
     // Create game session with optional userId and questionSetId
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
         gameCode,
         gameMode,
         totalQuestions,
-        questionIds,
+        questionIds: JSON.stringify(questionIds),
         userId: user?.id || null,
         questionSetId: questionSetId || null,
         // Boss battle fields
