@@ -161,3 +161,5 @@ This project is for educational purposes.
 ---
 
 **ChemQuest** - Making HSC Chemistry fun and engaging! 🧪⚔️
+
+<!-- Deployment trigger: 2026-02-18T07:49:41Z -->
