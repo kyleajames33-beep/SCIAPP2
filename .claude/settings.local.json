@@ -9,7 +9,9 @@
       "Bash(taskkill:*)",
       "Bash(powershell -Command:*)",
       "Bash(npx prisma db push:*)",
-      "Bash(NODE_ENV=development node node_modules/typescript/bin/tsc:*)"
+      "Bash(NODE_ENV=development node node_modules/typescript/bin/tsc:*)",
+      "Bash(git pull:*)",
+      "Bash(git push:*)"
     ]
   }
 }
