@@ -5,6 +5,6 @@
   "installCommand": "npm install",
   "outputDirectory": ".next",
   "env": {
-    "DATABASE_URL": "file:./data/app.db"
+    "JWT_SECRET": "@jwt-secret"
   }
 }

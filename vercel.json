@@ -5,6 +5,6 @@
   "buildCommand": "cd chemquest && npx prisma generate && npx next build",
   "outputDirectory": "chemquest/.next",
   "env": {
-    "DATABASE_URL": "file:./data/app.db"
+    "JWT_SECRET": "@jwt-secret"
   }
 }

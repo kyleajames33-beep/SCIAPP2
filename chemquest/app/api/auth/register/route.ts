@@ -2,12 +2,16 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { setAuthCookie } from '@/lib/auth';
 import { generateReferralCode } from '@/lib/referral';
+import { ensureDatabaseSchema } from '@/lib/db-init';
 import bcrypt from 'bcryptjs';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
+    // Ensure database schema exists (important for Vercel /tmp SQLite)
+    await ensureDatabaseSchema(prisma as any);
+    
     const body = await request.json();
     const { username, displayName, password, email } = body;
 
@@ -102,6 +106,7 @@ export async function POST(request: Request) {
         role: 'student',
         totalCoins: 0,
         referralCode,
+        updatedAt: new Date(),
       },
     });
 
@@ -123,8 +128,15 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error('Registration error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : '';
+    console.error('Registration error details:', { errorMessage, errorStack });
+    
     return NextResponse.json(
-      { error: 'Failed to register user' },
+      { 
+        error: 'Failed to register user',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      },
       { status: 500 }
     );
   }

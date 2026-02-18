@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { setAuthCookie } from '@/lib/auth';
+import { ensureDatabaseSchema } from '@/lib/db-init';
 import bcrypt from 'bcryptjs';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
+    // Ensure database schema exists (important for Vercel /tmp SQLite)
+    await ensureDatabaseSchema(prisma as any);
+    
     const body = await request.json();
     const { username, password } = body;
 
@@ -59,8 +63,14 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('Login error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Login error details:', errorMessage);
+    
     return NextResponse.json(
-      { error: 'Failed to login' },
+      { 
+        error: 'Failed to login',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      },
       { status: 500 }
     );
   }
