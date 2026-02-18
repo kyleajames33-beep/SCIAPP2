@@ -1,5 +1,4 @@
 import { PrismaClient } from '@prisma/client'
-import * as fs from 'fs'
 
 const globalForInit = globalThis as unknown as {
   dbSchemaInitialized: boolean | undefined
@@ -14,22 +13,33 @@ const globalForInit = globalThis as unknown as {
 export async function ensureDatabaseSchema(prisma: PrismaClient): Promise<void> {
   // Skip if already initialized in this process
   if (globalForInit.dbSchemaInitialized) {
+    console.log('[DB-INIT] Schema already initialized in this process')
     return
   }
 
+  console.log('[DB-INIT] Starting schema initialization check...')
+
   try {
     // Try a simple query to check if database is working
-    await prisma.$queryRaw`SELECT 1`
+    // If database doesn't exist, SQLite will create it on first write
+    let tablesExist = false
     
-    // Check if User table exists
-    const tables = await prisma.$queryRaw<Array<{name: string}>>`
-      SELECT name FROM sqlite_master WHERE type='table' AND name='User'
-    `
+    try {
+      const tables = await prisma.$queryRaw<Array<{name: string}>>`
+        SELECT name FROM sqlite_master WHERE type='table' AND name='User'
+      `
+      tablesExist = tables.length > 0
+      console.log('[DB-INIT] User table check:', tablesExist ? 'EXISTS' : 'NOT FOUND')
+    } catch (queryError) {
+      console.log('[DB-INIT] Database query failed, will create schema:', queryError instanceof Error ? queryError.message : queryError)
+      tablesExist = false
+    }
     
-    if (tables.length === 0) {
-      console.log('[DB-INIT] User table not found, creating schema...')
+    if (!tablesExist) {
+      console.log('[DB-INIT] Creating database schema...')
       
       // Create the essential tables using raw SQL
+      // User table
       await prisma.$executeRaw`
         CREATE TABLE IF NOT EXISTS "User" (
           "id" TEXT NOT NULL PRIMARY KEY,
@@ -62,15 +72,17 @@ export async function ensureDatabaseSchema(prisma: PrismaClient): Promise<void> 
           "campaignXp" INTEGER NOT NULL DEFAULT 0,
           "subscriptionTier" TEXT NOT NULL DEFAULT 'free',
           "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "updatedAt" DATETIME NOT NULL
+          "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
       `
+      console.log('[DB-INIT] User table created')
       
       await prisma.$executeRaw`CREATE UNIQUE INDEX IF NOT EXISTS "User_username_key" ON "User"("username")`
       await prisma.$executeRaw`CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User"("email")`
       await prisma.$executeRaw`CREATE UNIQUE INDEX IF NOT EXISTS "User_referralCode_key" ON "User"("referralCode")`
       await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "User_username_idx" ON "User"("username")`
       await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "User_email_idx" ON "User"("email")`
+      console.log('[DB-INIT] User indexes created')
 
       // Create Question table
       await prisma.$executeRaw`
@@ -83,13 +95,14 @@ export async function ensureDatabaseSchema(prisma: PrismaClient): Promise<void> 
           "optionD" TEXT NOT NULL,
           "correctAnswer" INTEGER NOT NULL,
           "subject" TEXT NOT NULL DEFAULT 'Chemistry',
-          "topic" TEXT NOT NULL,
-          "difficulty" TEXT NOT NULL,
+          "topic" TEXT NOT NULL DEFAULT 'General',
+          "difficulty" TEXT NOT NULL DEFAULT 'medium',
           "explanation" TEXT,
           "questionSetId" TEXT,
           "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
       `
+      console.log('[DB-INIT] Question table created')
 
       // Create QuestionSet table
       await prisma.$executeRaw`
@@ -102,9 +115,10 @@ export async function ensureDatabaseSchema(prisma: PrismaClient): Promise<void> 
           "isPublic" INTEGER NOT NULL DEFAULT 0,
           "creatorId" TEXT NOT NULL,
           "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "updatedAt" DATETIME NOT NULL
+          "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
       `
+      console.log('[DB-INIT] QuestionSet table created')
 
       // Create GameSession table
       await prisma.$executeRaw`
@@ -136,6 +150,7 @@ export async function ensureDatabaseSchema(prisma: PrismaClient): Promise<void> 
         )
       `
       await prisma.$executeRaw`CREATE UNIQUE INDEX IF NOT EXISTS "GameSession_gameCode_key" ON "GameSession"("gameCode")`
+      console.log('[DB-INIT] GameSession table created')
 
       // Create Player table
       await prisma.$executeRaw`
@@ -157,6 +172,7 @@ export async function ensureDatabaseSchema(prisma: PrismaClient): Promise<void> 
           FOREIGN KEY ("gameSessionId") REFERENCES "GameSession"("id") ON DELETE CASCADE
         )
       `
+      console.log('[DB-INIT] Player table created')
 
       // Create LeaderboardEntry table
       await prisma.$executeRaw`
@@ -173,8 +189,9 @@ export async function ensureDatabaseSchema(prisma: PrismaClient): Promise<void> 
           FOREIGN KEY ("userId") REFERENCES "User"("id")
         )
       `
+      console.log('[DB-INIT] LeaderboardEntry table created')
 
-      // Create other essential tables...
+      // Create other essential tables
       await prisma.$executeRaw`
         CREATE TABLE IF NOT EXISTS "UserUpgrade" (
           "id" TEXT NOT NULL PRIMARY KEY,
@@ -182,11 +199,12 @@ export async function ensureDatabaseSchema(prisma: PrismaClient): Promise<void> 
           "upgradeId" TEXT NOT NULL,
           "level" INTEGER NOT NULL DEFAULT 1,
           "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "updatedAt" DATETIME NOT NULL,
+          "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE
         )
       `
       await prisma.$executeRaw`CREATE UNIQUE INDEX IF NOT EXISTS "UserUpgrade_userId_upgradeId_key" ON "UserUpgrade"("userId", "upgradeId")`
+      console.log('[DB-INIT] UserUpgrade table created')
 
       await prisma.$executeRaw`
         CREATE TABLE IF NOT EXISTS "UserProgress" (
@@ -197,11 +215,12 @@ export async function ensureDatabaseSchema(prisma: PrismaClient): Promise<void> 
           "bestTime" INTEGER NOT NULL DEFAULT 0,
           "totalRuns" INTEGER NOT NULL DEFAULT 0,
           "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "updatedAt" DATETIME NOT NULL,
+          "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE
         )
       `
       await prisma.$executeRaw`CREATE UNIQUE INDEX IF NOT EXISTS "UserProgress_userId_mode_key" ON "UserProgress"("userId", "mode")`
+      console.log('[DB-INIT] UserProgress table created')
 
       await prisma.$executeRaw`
         CREATE TABLE IF NOT EXISTS "PlayerAnswer" (
@@ -217,6 +236,7 @@ export async function ensureDatabaseSchema(prisma: PrismaClient): Promise<void> 
           FOREIGN KEY ("gameSessionId") REFERENCES "GameSession"("id") ON DELETE CASCADE
         )
       `
+      console.log('[DB-INIT] PlayerAnswer table created')
 
       await prisma.$executeRaw`
         CREATE TABLE IF NOT EXISTS "CampaignProgress" (
@@ -228,11 +248,12 @@ export async function ensureDatabaseSchema(prisma: PrismaClient): Promise<void> 
           "bestScore" INTEGER NOT NULL DEFAULT 0,
           "xpEarned" INTEGER NOT NULL DEFAULT 0,
           "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "updatedAt" DATETIME NOT NULL,
+          "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE
         )
       `
       await prisma.$executeRaw`CREATE UNIQUE INDEX IF NOT EXISTS "CampaignProgress_userId_chamberId_key" ON "CampaignProgress"("userId", "chamberId")`
+      console.log('[DB-INIT] CampaignProgress table created')
 
       await prisma.$executeRaw`
         CREATE TABLE IF NOT EXISTS "BossAttempt" (
@@ -242,17 +263,24 @@ export async function ensureDatabaseSchema(prisma: PrismaClient): Promise<void> 
           "defeated" INTEGER NOT NULL DEFAULT 0,
           "damageDealt" INTEGER NOT NULL DEFAULT 0,
           "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          "updatedAt" DATETIME NOT NULL,
+          "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE
         )
       `
+      console.log('[DB-INIT] BossAttempt table created')
 
-      console.log('[DB-INIT] Schema created successfully')
+      console.log('[DB-INIT] All tables created successfully!')
     }
     
     globalForInit.dbSchemaInitialized = true
+    console.log('[DB-INIT] Schema initialization complete')
   } catch (error) {
     console.error('[DB-INIT] Error initializing schema:', error)
+    console.error('[DB-INIT] Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    })
     throw error
   }
 }
