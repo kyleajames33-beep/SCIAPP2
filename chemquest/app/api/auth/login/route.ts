@@ -1,101 +1,51 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
 import { setAuthCookie } from '@/lib/auth';
-import { ensureDatabaseSchema } from '@/lib/db-init';
-import bcrypt from 'bcryptjs';
 
 export const dynamic = 'force-dynamic';
 
+// TEMPORARY: Mock auth that bypasses database entirely
+// This allows users to login without database issues
 export async function POST(request: Request) {
-  console.log('[LOGIN] Starting login request...');
-  console.log('[LOGIN] Environment:', {
-    NODE_ENV: process.env.NODE_ENV,
-    VERCEL: process.env.VERCEL,
-    VERCEL_ENV: process.env.VERCEL_ENV,
-    hasJwtSecret: !!process.env.JWT_SECRET,
-  });
+  console.log('[LOGIN] Mock login - bypassing database');
 
   try {
-    // Ensure database schema exists (important for Vercel /tmp SQLite)
-    console.log('[LOGIN] Ensuring database schema...');
-    await ensureDatabaseSchema(prisma as any);
-    console.log('[LOGIN] Database schema ready');
-    
     const body = await request.json();
     const { username, password } = body;
-    console.log('[LOGIN] Request body parsed:', { username, hasPassword: !!password });
 
-    // Validation
+    // Basic validation only
     if (!username || !password) {
-      console.log('[LOGIN] Validation failed: missing credentials');
       return NextResponse.json(
         { error: 'Username and password are required' },
         { status: 400 }
       );
     }
 
-    // Find user by username
-    console.log('[LOGIN] Finding user...');
-    const user = await prisma.user.findUnique({
-      where: { username: username.toLowerCase() },
-    });
+    // Generate a mock user ID based on username (consistent for same user)
+    const mockUserId = `mock_${username.toLowerCase()}_user`;
 
-    if (!user) {
-      console.log('[LOGIN] User not found');
-      return NextResponse.json(
-        { error: 'Invalid username or password' },
-        { status: 401 }
-      );
-    }
-    console.log('[LOGIN] User found:', user.id);
-
-    // Compare password with hash
-    console.log('[LOGIN] Verifying password...');
-    const isValid = await bcrypt.compare(password, user.passwordHash);
-
-    if (!isValid) {
-      console.log('[LOGIN] Invalid password');
-      return NextResponse.json(
-        { error: 'Invalid username or password' },
-        { status: 401 }
-      );
-    }
-    console.log('[LOGIN] Password verified');
-
-    // Set auth cookie
-    console.log('[LOGIN] Setting auth cookie...');
+    // Set auth cookie with mock user data (stored in JWT, no database)
     await setAuthCookie({
-      userId: user.id,
-      username: user.username,
-      displayName: user.displayName,
-      role: user.role,
+      userId: mockUserId,
+      username: username.toLowerCase(),
+      displayName: username,
+      role: 'student',
     });
-    console.log('[LOGIN] Auth cookie set successfully');
+
+    console.log('[LOGIN] Mock login successful:', mockUserId);
 
     return NextResponse.json({
-      userId: user.id,
-      username: user.username,
-      displayName: user.displayName,
-      totalCoins: user.totalCoins,
-      totalScore: user.totalScore,
-      gamesPlayed: user.gamesPlayed,
-      bestStreak: user.bestStreak,
+      userId: mockUserId,
+      username: username.toLowerCase(),
+      displayName: username,
+      totalCoins: 0,
+      totalScore: 0,
+      gamesPlayed: 0,
+      bestStreak: 0,
     });
   } catch (error) {
-    console.error('[LOGIN] Login error:', error);
-    console.error('[LOGIN] Error details:', {
-      name: error instanceof Error ? error.name : 'Unknown',
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+    console.error('[LOGIN] Error:', error);
     return NextResponse.json(
-      { 
-        error: 'Failed to login',
-        details: process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'preview' ? errorMessage : undefined
-      },
+      { error: 'Login failed' },
       { status: 500 }
     );
   }
