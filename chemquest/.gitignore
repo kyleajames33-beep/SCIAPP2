@@ -30,8 +30,9 @@ yarn-error.log*
 Thumbs.db
 
 # Prisma
-*.db
 *.db-journal
+# Allow the seeded dev.db to be deployed with the build (needed for Vercel /tmp copy)
+!prisma/dev.db
 
 # Test coverage
 coverage/

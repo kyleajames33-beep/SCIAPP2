@@ -6,6 +6,10 @@ const nextConfig = {
   output: process.env.NEXT_OUTPUT_MODE,
   experimental: {
     outputFileTracingRoot: path.join(__dirname, '../'),
+    outputFileTracingIncludes: {
+      '/api/**': ['./prisma/dev.db'],
+      '/api/auth/**': ['./prisma/dev.db'],
+    },
   },
   eslint: {
     ignoreDuringBuilds: true,
