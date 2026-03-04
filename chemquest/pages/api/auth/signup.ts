@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 
 // Public client for auth signup
@@ -8,16 +8,27 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 // Service role client for database operations (bypasses RLS)
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-export async function POST(request: Request) {
+type SignupResponse = 
+  | { success: true; user: { id: string; email: string; username: string } }
+  | { success: false; error: string; details?: string };
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<SignupResponse>
+) {
+  // Only allow POST requests
+  if (req.method !== 'POST') {
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
+  }
+
   try {
-    const body = await request.json();
-    const { email, password, username } = body;
+    const { email, password, username } = req.body;
 
     if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      );
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Email and password are required' 
+      });
     }
 
     // Use public client for signUp
@@ -35,17 +46,17 @@ export async function POST(request: Request) {
     });
 
     if (authError) {
-      return NextResponse.json(
-        { error: authError.message },
-        { status: 400 }
-      );
+      return res.status(400).json({ 
+        success: false, 
+        error: authError.message 
+      });
     }
 
     if (!authData.user) {
-      return NextResponse.json(
-        { error: 'User creation failed' },
-        { status: 500 }
-      );
+      return res.status(500).json({ 
+        success: false, 
+        error: 'User creation failed' 
+      });
     }
 
     // Use service role client to insert into User table (bypasses RLS)
@@ -65,28 +76,26 @@ export async function POST(request: Request) {
 
     if (insertError) {
       console.error('Error inserting user:', insertError);
-      return NextResponse.json(
-        { error: 'Failed to create user profile', details: insertError.message },
-        { status: 500 }
-      );
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to create user profile',
+        details: insertError.message 
+      });
     }
 
-    return NextResponse.json(
-      {
-        message: 'User created successfully',
-        user: {
-          id: authData.user.id,
-          email: authData.user.email,
-          username: username || email.split('@')[0],
-        },
+    return res.status(201).json({
+      success: true,
+      user: {
+        id: authData.user.id,
+        email: authData.user.email!,
+        username: username || email.split('@')[0],
       },
-      { status: 201 }
-    );
+    });
   } catch (error) {
     console.error('Signup error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
   }
 }

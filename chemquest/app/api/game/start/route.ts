@@ -1,9 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+// import { NextRequest, NextResponse } from 'next/server'
+// import { prisma } from '@/lib/db'
+import { NextRequest } from 'next/server'
 import { getSessionUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+/*
 function generateGameCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   let code = ''
@@ -27,8 +36,13 @@ const GAME_MODE_CONFIG: Record<GameMode, {
   boss_battle: { questions: 15, timePerQuestion: 20, bossHp: 1000 },
   tower_climb: { questions: 100, timePerQuestion: 30, lives: 3 },
 }
+*/
 
 export async function POST(req: NextRequest) {
+  console.log('[GAME_START] DISABLED - Using Supabase')
+  return json({ error: 'Feature temporarily disabled during migration' }, 503)
+  
+  /*
   try {
     const body = await req.json()
     const gameMode: GameMode = body?.gameMode || 'classic'
@@ -180,4 +194,5 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     )
   }
+  */
 }

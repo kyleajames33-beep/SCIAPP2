@@ -15,15 +15,18 @@ export default function LoginPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    username: '',
+    email: '',
     password: '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    
+    console.log('[LOGIN PAGE] Submitting login form');
 
     try {
+      console.log('[LOGIN PAGE] Sending request to /api/auth/login');
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -31,15 +34,18 @@ export default function LoginPage() {
       });
 
       const data = await response.json();
+      console.log('[LOGIN PAGE] Response received:', response.status);
 
       if (!response.ok) {
         throw new Error(data.error || 'Login failed');
       }
 
+      console.log('[LOGIN PAGE] Login successful, redirecting to hub');
       toast.success(`Welcome back, ${data.displayName}!`);
       router.push('/hub');
       router.refresh();
     } catch (error) {
+      console.error('[LOGIN PAGE] Login error:', error);
       toast.error(error instanceof Error ? error.message : 'Login failed');
     } finally {
       setIsLoading(false);
@@ -71,13 +77,13 @@ export default function LoginPage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-purple-100">Username</Label>
+                <Label htmlFor="email" className="text-purple-100">Email</Label>
                 <Input
-                  id="username"
-                  type="text"
-                  placeholder="Enter your username"
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
                   className="bg-white/10 border-purple-500/30 text-white placeholder:text-purple-300/50"
                 />

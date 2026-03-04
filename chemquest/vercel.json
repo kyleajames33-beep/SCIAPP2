@@ -1,10 +1,7 @@
 {
   "version": 2,
   "framework": "nextjs",
-  "buildCommand": "npx prisma generate && npx next build",
+  "buildCommand": "next build",
   "installCommand": "npm install",
-  "outputDirectory": ".next",
-  "env": {
-    "JWT_SECRET": "@jwt-secret"
-  }
+  "outputDirectory": ".next"
 }

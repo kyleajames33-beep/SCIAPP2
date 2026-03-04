@@ -1,11 +1,23 @@
 export const dynamic = 'force-dynamic';
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+// import { NextRequest, NextResponse } from 'next/server';
+// import { prisma } from '@/lib/db';
+import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
 
 // GET /api/user/customize - Get character customization
 export async function GET() {
+  console.log('[USER_CUSTOMIZE] DISABLED - Using Supabase')
+  return json({ error: 'Feature temporarily disabled during migration' }, 503)
+  
+  /*
   try {
     // Get userId from cookie
     const cookieStore = await cookies();
@@ -47,10 +59,15 @@ export async function GET() {
       { status: 500 }
     );
   }
+  */
 }
 
 // POST /api/user/customize - Save character customization
 export async function POST(req: NextRequest) {
+  console.log('[USER_CUSTOMIZE] DISABLED - Using Supabase')
+  return json({ error: 'Feature temporarily disabled during migration' }, 503)
+  
+  /*
   try {
     const { body, hair, weapon } = await req.json();
 
@@ -109,4 +126,5 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+  */
 }

@@ -1,11 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+// import { NextRequest, NextResponse } from "next/server";
+// import { prisma } from "@/lib/db";
+import { NextRequest } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { getItemById } from "@/lib/shop-data";
+// import { getItemById } from "@/lib/shop-data";
 
 export const dynamic = "force-dynamic";
 
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
 export async function POST(request: NextRequest) {
+  console.log('[SHOP_PURCHASE] DISABLED - Using Supabase')
+  return json({ error: 'Feature temporarily disabled during migration' }, 503)
+  
+  /*
   try {
     const user = await getSessionUser();
     if (!user) {
@@ -92,4 +104,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+  */
 }

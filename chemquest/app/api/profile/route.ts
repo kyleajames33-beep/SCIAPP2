@@ -1,11 +1,22 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+// import { NextResponse } from 'next/server'
+// import { prisma } from '@/lib/db'
 import { getSessionUser } from '@/lib/auth'
-import { getRankInfo } from '@/lib/rank-system'
+// import { getRankInfo } from '@/lib/rank-system'
 
 export const dynamic = 'force-dynamic'
 
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
 export async function GET() {
+  console.log('[PROFILE] DISABLED - Using Supabase')
+  return json({ error: 'Feature temporarily disabled during migration' }, 503)
+  
+  /*
   try {
     const user = await getSessionUser()
 
@@ -82,4 +93,5 @@ export async function GET() {
       { status: 500 }
     )
   }
+  */
 }

@@ -1,15 +1,28 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+// import { NextResponse } from 'next/server'
+// import { prisma } from '@/lib/db'
+// import { getSessionUser } from '@/lib/auth'
+// import { getTodaysChallenge, hasCompletedTodaysChallenge } from '@/lib/challenges'
+
 import { getSessionUser } from '@/lib/auth'
-import { getTodaysChallenge, hasCompletedTodaysChallenge } from '@/lib/challenges'
 
 export const dynamic = 'force-dynamic'
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
 
 /**
  * POST /api/user/challenge
  * Complete today's daily challenge
  */
 export async function POST(request: Request) {
+  console.log('[USER_CHALLENGE] DISABLED - Using Supabase')
+  return json({ error: 'Feature temporarily disabled during migration' }, 503)
+  
+  /*
   try {
     const sessionUser = await getSessionUser()
     if (!sessionUser) {
@@ -87,6 +100,7 @@ export async function POST(request: Request) {
       { status: 400 }
     )
   }
+  */
 }
 
 /**
@@ -94,6 +108,10 @@ export async function POST(request: Request) {
  * Get today's challenge and user's completion status
  */
 export async function GET() {
+  console.log('[USER_CHALLENGE] DISABLED - Using Supabase')
+  return json({ error: 'Feature temporarily disabled during migration' }, 503)
+  
+  /*
   try {
     const sessionUser = await getSessionUser()
     if (!sessionUser) {
@@ -133,4 +151,5 @@ export async function GET() {
       { status: 500 }
     )
   }
+  */
 }

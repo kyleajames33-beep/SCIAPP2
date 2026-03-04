@@ -1,10 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+// import { NextRequest, NextResponse } from 'next/server'
+// import { prisma } from '@/lib/db'
+import { NextRequest } from 'next/server'
 import { getSessionUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
 export async function POST(req: NextRequest) {
+  console.log('[GAME_FINISH] DISABLED - Using Supabase')
+  return json({ error: 'Feature temporarily disabled during migration' }, 503)
+  
+  /*
   try {
     const body = await req.json()
     const { sessionId, coinsEarned, floorReached, chamberId, worldId, bossId } = body
@@ -260,4 +272,5 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     )
   }
+  */
 }

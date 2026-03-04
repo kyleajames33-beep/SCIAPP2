@@ -1,10 +1,10 @@
 export const dynamic = 'force-dynamic'
 
 export const metadata = {
-  title: 'ChemQuest',
+  title: 'ChemQuest Simple Auth',
 }
 
-export default function RootLayout({
+export default function SimpleLayout({
   children,
 }: {
   children: React.ReactNode
