@@ -11,13 +11,6 @@ export const dynamic = 'force-dynamic'
 // const REFERRAL_REWARD_COINS = 500
 // const REFERRAL_REWARD_GEMS = 10
 
-function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
-
 /**
  * POST /api/user/referral
  * DISABLED - Using Supabase instead
