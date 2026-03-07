@@ -3,99 +3,6 @@
 import { useState, useEffect } from 'react';
 import { getRandomQuestion, Question } from '@/lib/questions-supabase';
 
-// Simple inline styles to avoid Tailwind completely
-const styles = {
-  container: {
-    maxWidth: '600px',
-    margin: '50px auto',
-    padding: '20px',
-    fontFamily: 'Arial, sans-serif',
-  },
-  title: {
-    fontSize: '28px',
-    marginBottom: '30px',
-    textAlign: 'center' as const,
-    color: '#333',
-  },
-  loading: {
-    textAlign: 'center' as const,
-    padding: '40px',
-    fontSize: '18px',
-    color: '#666',
-  },
-  error: {
-    backgroundColor: '#f8d7da',
-    color: '#721c24',
-    padding: '15px',
-    borderRadius: '4px',
-    marginBottom: '20px',
-  },
-  questionCard: {
-    backgroundColor: '#f8f9fa',
-    border: '1px solid #dee2e6',
-    borderRadius: '8px',
-    padding: '20px',
-    marginBottom: '20px',
-  },
-  questionText: {
-    fontSize: '18px',
-    fontWeight: 'bold' as const,
-    marginBottom: '20px',
-    color: '#212529',
-  },
-  options: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '10px',
-  },
-  optionButton: {
-    padding: '15px',
-    fontSize: '16px',
-    textAlign: 'left' as const,
-    backgroundColor: '#fff',
-    border: '2px solid #dee2e6',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-  },
-  optionButtonHover: {
-    backgroundColor: '#e9ecef',
-    borderColor: '#adb5bd',
-  },
-  correctAnswer: {
-    backgroundColor: '#d4edda',
-    borderColor: '#28a745',
-  },
-  wrongAnswer: {
-    backgroundColor: '#f8d7da',
-    borderColor: '#dc3545',
-  },
-  nextButton: {
-    padding: '12px 24px',
-    fontSize: '16px',
-    backgroundColor: '#007bff',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    marginTop: '20px',
-  },
-  result: {
-    marginTop: '20px',
-    padding: '15px',
-    borderRadius: '4px',
-    fontSize: '16px',
-  },
-  metadata: {
-    marginTop: '15px',
-    padding: '10px',
-    backgroundColor: '#e9ecef',
-    borderRadius: '4px',
-    fontSize: '14px',
-    color: '#6c757d',
-  },
-};
-
 export default function SimpleQuizPage() {
   const [question, setQuestion] = useState<Question | null>(null);
   const [loading, setLoading] = useState(true);
@@ -150,102 +57,130 @@ export default function SimpleQuizPage() {
 
   if (loading) {
     return (
-      <div style={styles.container}>
-        <h1 style={styles.title}>ChemQuest - Simple Quiz</h1>
-        <div style={styles.loading}>Loading question...</div>
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-8 text-blue-400">ChemQuest Quiz</h1>
+          <div className="text-slate-400 text-lg">Loading question...</div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={styles.container}>
-        <h1 style={styles.title}>ChemQuest - Simple Quiz</h1>
-        <div style={styles.error}>
-          <strong>Error:</strong> {error}
+      <div className="min-h-screen bg-slate-900 text-white p-8">
+        <div className="max-w-2xl mx-auto">
+          <h1 className="text-3xl font-bold mb-8 text-center text-blue-400">ChemQuest Quiz</h1>
+          <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-xl mb-6">
+            <strong>Error:</strong> {error}
+          </div>
+          <button 
+            onClick={fetchQuestion}
+            className="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-6 rounded-xl transition-all"
+          >
+            Try Again
+          </button>
         </div>
-        <button onClick={fetchQuestion} style={styles.nextButton}>
-          Try Again
-        </button>
       </div>
     );
   }
 
   if (!question) {
     return (
-      <div style={styles.container}>
-        <h1 style={styles.title}>ChemQuest - Simple Quiz</h1>
-        <div style={styles.error}>No question found</div>
-        <button onClick={fetchQuestion} style={styles.nextButton}>
-          Try Again
-        </button>
+      <div className="min-h-screen bg-slate-900 text-white p-8">
+        <div className="max-w-2xl mx-auto">
+          <h1 className="text-3xl font-bold mb-8 text-center text-blue-400">ChemQuest Quiz</h1>
+          <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-xl mb-6">
+            No question found
+          </div>
+          <button 
+            onClick={fetchQuestion}
+            className="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-6 rounded-xl transition-all"
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>ChemQuest - Simple Quiz</h1>
-      
-      <div style={styles.questionCard}>
-        <div style={styles.questionText}>
-          {question.question}
-        </div>
+    <div className="min-h-screen bg-slate-900 text-white p-4 md:p-8">
+      <div className="max-w-2xl mx-auto">
+        <h1 className="text-3xl font-bold mb-8 text-center text-blue-400">ChemQuest Quiz</h1>
         
-        <div style={styles.options}>
-          {[0, 1, 2, 3].map((index) => {
-            const isSelected = selectedOption === index;
-            const isCorrect = question.correctAnswer === index;
-            const showCorrect = showResult && isCorrect;
-            const showWrong = showResult && isSelected && !isCorrect;
-            
-            let buttonStyle = { ...styles.optionButton };
-            if (showCorrect) {
-              buttonStyle = { ...buttonStyle, ...styles.correctAnswer };
-            } else if (showWrong) {
-              buttonStyle = { ...buttonStyle, ...styles.wrongAnswer };
-            }
-            
-            return (
-              <button
-                key={index}
-                onClick={() => handleOptionClick(index)}
-                style={buttonStyle}
-                disabled={showResult}
-              >
-                <strong>{getOptionLabel(index)}.</strong> {getOptionText(index)}
-              </button>
-            );
-          })}
-        </div>
-        
-        {showResult && (
-          <div style={{
-            ...styles.result,
-            ...(selectedOption === question.correctAnswer ? styles.correctAnswer : styles.wrongAnswer),
-          }}>
-            {selectedOption === question.correctAnswer 
-              ? '✅ Correct! Well done!' 
-              : `❌ Wrong! The correct answer is ${getOptionLabel(question.correctAnswer)}.`}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 mb-6">
+          <div className="text-lg font-semibold mb-6 text-slate-100 leading-relaxed">
+            {question.question}
           </div>
-        )}
-        
-        {showResult && question.explanation && (
-          <div style={styles.metadata}>
-            <strong>Explanation:</strong> {question.explanation}
+          
+          <div className="space-y-3">
+            {[0, 1, 2, 3].map((index) => {
+              const isSelected = selectedOption === index;
+              const isCorrect = question.correctAnswer === index;
+              const showCorrect = showResult && isCorrect;
+              const showWrong = showResult && isSelected && !isCorrect;
+              
+              let buttonClass = 'w-full text-left p-4 rounded-xl border-2 transition-all font-medium ';
+              
+              if (showCorrect) {
+                buttonClass += 'bg-green-500/20 border-green-500 text-green-400';
+              } else if (showWrong) {
+                buttonClass += 'bg-red-500/20 border-red-500 text-red-400';
+              } else if (isSelected) {
+                buttonClass += 'bg-blue-500/20 border-blue-500 text-blue-400';
+              } else {
+                buttonClass += 'bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700 hover:border-slate-500';
+              }
+              
+              return (
+                <button
+                  key={index}
+                  onClick={() => handleOptionClick(index)}
+                  disabled={showResult}
+                  className={buttonClass}
+                >
+                  <span className="font-bold mr-2">{getOptionLabel(index)}.</span>
+                  {getOptionText(index)}
+                </button>
+              );
+            })}
           </div>
-        )}
-        
-        <div style={styles.metadata}>
-          <strong>Topic:</strong> {question.topic} | 
-          <strong> Difficulty:</strong> {question.difficulty} | 
-          <strong> Subject:</strong> {question.subject}
+          
+          {showResult && (
+            <div className={`mt-6 p-4 rounded-xl font-medium ${
+              selectedOption === question.correctAnswer 
+                ? 'bg-green-500/10 border border-green-500/30 text-green-400'
+                : 'bg-red-500/10 border border-red-500/30 text-red-400'
+            }`}>
+              {selectedOption === question.correctAnswer 
+                ? '✅ Correct! Well done!' 
+                : `❌ Wrong! The correct answer is ${getOptionLabel(question.correctAnswer)}.`}
+            </div>
+          )}
+          
+          {showResult && question.explanation && (
+            <div className="mt-4 p-4 bg-slate-700/30 rounded-xl text-slate-300 text-sm">
+              <strong className="text-slate-200">Explanation:</strong> {question.explanation}
+            </div>
+          )}
+          
+          <div className="mt-4 p-3 bg-slate-700/30 rounded-xl text-sm text-slate-400">
+            <span className="text-slate-300 font-medium">Topic:</span> {question.topic} {' '}
+            <span className="mx-2">|</span>
+            <span className="text-slate-300 font-medium">Difficulty:</span> {question.difficulty} {' '}
+            <span className="mx-2">|</span>
+            <span className="text-slate-300 font-medium">Subject:</span> {question.subject}
+          </div>
         </div>
+        
+        <button 
+          onClick={fetchQuestion}
+          className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-xl transition-all shadow-lg shadow-blue-600/25"
+        >
+          Next Question
+        </button>
       </div>
-      
-      <button onClick={fetchQuestion} style={styles.nextButton}>
-        Next Question
-      </button>
     </div>
   );
 }

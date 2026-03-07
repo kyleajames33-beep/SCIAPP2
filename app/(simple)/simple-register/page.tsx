@@ -3,54 +3,6 @@
 import { useState } from 'react';
 import { signUp } from '@/lib/auth-supabase';
 
-// Simple inline styles to avoid Tailwind completely
-const styles = {
-  container: {
-    maxWidth: '400px',
-    margin: '50px auto',
-    padding: '20px',
-    fontFamily: 'Arial, sans-serif',
-  },
-  title: {
-    fontSize: '24px',
-    marginBottom: '20px',
-    textAlign: 'center' as const,
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '15px',
-  },
-  input: {
-    padding: '10px',
-    fontSize: '16px',
-    border: '1px solid #ccc',
-    borderRadius: '4px',
-  },
-  button: {
-    padding: '12px',
-    fontSize: '16px',
-    backgroundColor: '#4CAF50',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  message: {
-    marginTop: '15px',
-    padding: '10px',
-    borderRadius: '4px',
-  },
-  success: {
-    backgroundColor: '#d4edda',
-    color: '#155724',
-  },
-  error: {
-    backgroundColor: '#f8d7da',
-    color: '#721c24',
-  },
-};
-
 export default function SimpleRegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -91,68 +43,70 @@ export default function SimpleRegisterPage() {
   };
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>ChemQuest - Simple Register</h1>
-      
-      <form onSubmit={handleSubmit} style={styles.form}>
-        <input
-          type="text"
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          required
-          style={styles.input}
-        />
+    <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <h1 className="text-3xl font-bold mb-8 text-center text-blue-400">Create Account</h1>
         
-        <input
-          type="text"
-          placeholder="Display Name (optional)"
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
-          style={styles.input}
-        />
-        
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          style={styles.input}
-        />
-        
-        <input
-          type="password"
-          placeholder="Password (min 6 chars)"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={6}
-          style={styles.input}
-        />
-        
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            ...styles.button,
-            opacity: loading ? 0.7 : 1,
-          }}
-        >
-          {loading ? 'Creating Account...' : 'Create Account'}
-        </button>
-      </form>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="text"
+            placeholder="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+          />
+          
+          <input
+            type="text"
+            placeholder="Display Name (optional)"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+          />
+          
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+          />
+          
+          <input
+            type="password"
+            placeholder="Password (min 6 chars)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={6}
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+          />
+          
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full font-bold py-4 px-8 rounded-xl transition-all shadow-lg ${
+              loading 
+                ? 'bg-slate-700 text-slate-400 cursor-not-allowed' 
+                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/25'
+            }`}
+          >
+            {loading ? 'Creating Account...' : 'Create Account'}
+          </button>
+        </form>
 
-      {result && (
-        <div
-          style={{
-            ...styles.message,
-            ...(result.success ? styles.success : styles.error),
-          }}
-        >
-          {result.message}
-        </div>
-      )}
+        {result && (
+          <div className={`mt-6 p-4 rounded-xl border ${
+            result.success 
+              ? 'bg-green-500/10 border-green-500/30 text-green-400'
+              : 'bg-red-500/10 border-red-500/30 text-red-400'
+          }`}>
+            {result.message}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
