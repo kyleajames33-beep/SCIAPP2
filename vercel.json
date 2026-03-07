@@ -1,7 +1,6 @@
 {
-  "version": 2,
-  "framework": "nextjs",
+  "buildCommand": "cd chemquest && next build",
   "installCommand": "cd chemquest && npm install",
-  "buildCommand": "cd chemquest && npx next build",
-  "outputDirectory": "chemquest/.next"
+  "outputDirectory": "chemquest/.next",
+  "framework": "nextjs"
 }
