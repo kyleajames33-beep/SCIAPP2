@@ -1,3 +1,4 @@
+// Tailwind config - updated for root structure
 import type { Config } from 'tailwindcss';
 
 const config: Config = {
