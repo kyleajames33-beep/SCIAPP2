@@ -3,8 +3,6 @@
 // import { getSessionUser } from '@/lib/auth'
 // import { getTodaysChallenge, hasCompletedTodaysChallenge } from '@/lib/challenges'
 
-import { getSessionUser } from '@/lib/auth'
-
 export const dynamic = 'force-dynamic'
 
 function json(data: unknown, status = 200) {

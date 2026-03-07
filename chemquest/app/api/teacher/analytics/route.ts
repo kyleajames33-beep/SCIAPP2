@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
-import { getSessionUser } from '@/lib/auth'
+// import { prisma } from '@/lib/db'
+// import { getSessionUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
+/*
 interface StudentAnalytics {
   userId: string
   username: string
@@ -16,12 +17,20 @@ interface StudentAnalytics {
   totalStudyTime: number // in minutes
   lastPlayed: string | null
 }
+*/
 
 /**
  * GET /api/teacher/analytics
  * Get analytics for all students who have played teacher's question sets
  */
 export async function GET() {
+  console.log('[TEACHER_ANALYTICS] DISABLED - Using Supabase')
+  return NextResponse.json(
+    { error: 'Feature temporarily disabled during migration' },
+    { status: 503 }
+  )
+  
+  /*
   try {
     const sessionUser = await getSessionUser()
 
@@ -195,4 +204,5 @@ export async function GET() {
       { status: 500 }
     )
   }
+  */
 }

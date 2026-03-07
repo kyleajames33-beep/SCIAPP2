@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
-import { getSessionUser } from '@/lib/auth'
+// import { prisma } from '@/lib/db'
+// import { getSessionUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
 // Get question sets (public sets + user's own sets)
 export async function GET(req: NextRequest) {
+  console.log('[QUESTIONS_SETS] DISABLED - Using Supabase')
+  return NextResponse.json(
+    { error: 'Feature temporarily disabled during migration' },
+    { status: 503 }
+  )
+  
+  /*
   try {
     const user = await getSessionUser()
     const { searchParams } = new URL(req.url)
@@ -80,4 +87,5 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     )
   }
+  */
 }

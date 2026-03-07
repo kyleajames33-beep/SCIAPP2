@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
-import { getSessionUser } from '@/lib/auth'
+// import { prisma } from '@/lib/db'
+// import { getSessionUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
+/*
 interface ImportedQuestion {
   question: string
   options: string[]
@@ -12,8 +13,16 @@ interface ImportedQuestion {
   difficulty: 'easy' | 'medium' | 'hard'
   explanation?: string
 }
+*/
 
 export async function POST(req: NextRequest) {
+  console.log('[QUESTIONS_IMPORT] DISABLED - Using Supabase')
+  return NextResponse.json(
+    { error: 'Feature temporarily disabled during migration' },
+    { status: 503 }
+  )
+  
+  /*
   try {
     const user = await getSessionUser()
 
@@ -128,4 +137,5 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     )
   }
+  */
 }

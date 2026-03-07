@@ -1,6 +1,6 @@
 // import { NextResponse } from 'next/server'
 // import { prisma } from '@/lib/db'
-import { getSessionUser } from '@/lib/auth'
+// import { getSessionUser } from '@/lib/auth'
 // import { getRankInfo } from '@/lib/rank-system'
 
 export const dynamic = 'force-dynamic'

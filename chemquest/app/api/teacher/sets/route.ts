@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
-import { getSessionUser } from '@/lib/auth'
+// import { prisma } from '@/lib/db'
+// import { getSessionUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
 // Get teacher's own question sets with full questions
 export async function GET() {
+  console.log('[TEACHER_SETS] DISABLED - Using Supabase')
+  return NextResponse.json(
+    { error: 'Feature temporarily disabled during migration' },
+    { status: 503 }
+  )
+  
+  /*
   try {
     const user = await getSessionUser()
 
@@ -68,4 +75,5 @@ export async function GET() {
       { status: 500 }
     )
   }
+  */
 }

@@ -11,7 +11,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { prisma } from '@/lib/db';
-import { setAuthCookie } from '@/lib/auth';
+// import { setAuthCookie } from '@/lib/auth';
 import { generateReferralCode } from '@/lib/referral';
 
 export const dynamic = 'force-dynamic';
@@ -183,14 +183,14 @@ export async function POST(request: Request) {
       email: newUser.email,
     });
 
-    // ─── Set auth cookie (for backward compatibility) ─────────────
-    // This allows the existing session system to work alongside Supabase
-    await setAuthCookie({
-      userId: supabaseUserId,
-      username: normalizedUsername,
-      displayName: displayName.trim(),
-      role: 'student',
-    });
+    // ─── Set auth cookie (DISABLED during migration) ─────────────
+    // TODO: Re-implement with Supabase session
+    // await setAuthCookie({
+    //   userId: supabaseUserId,
+    //   username: normalizedUsername,
+    //   displayName: displayName.trim(),
+    //   role: 'student',
+    // });
 
     // ─── Return success response ──────────────────────────────────
     return NextResponse.json(

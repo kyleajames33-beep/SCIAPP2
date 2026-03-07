@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getSessionUser } from '@/lib/auth';
+// import { getSessionUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  console.log('[AUTH_ME] DISABLED - Using Supabase');
+  return NextResponse.json(
+    { error: 'Feature temporarily disabled during migration' },
+    { status: 503 }
+  );
+  
+  /*
   try {
     const user = await getSessionUser();
 
@@ -47,4 +54,5 @@ export async function GET() {
       { status: 500 }
     );
   }
+  */
 }

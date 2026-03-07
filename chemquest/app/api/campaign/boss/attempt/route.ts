@@ -1,7 +1,7 @@
 // import { NextRequest, NextResponse } from "next/server";
 // import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
-import { getSessionUser } from "@/lib/auth";
+// import { getSessionUser } from "@/lib/auth";
 // import { checkRankUp, calculateBossXP, getRankInfo } from "@/lib/rank-system";
 
 export const dynamic = "force-dynamic";
