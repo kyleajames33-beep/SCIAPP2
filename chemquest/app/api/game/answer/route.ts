@@ -1,8 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+// import { NextRequest, NextResponse } from 'next/server'
+// import { prisma } from '@/lib/db'
+import { NextRequest } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+/*
 function calculatePoints(isCorrect: boolean, streak: number): number {
   if (!isCorrect) return 0
 
@@ -20,8 +29,13 @@ function calculateCoins(isCorrect: boolean, streak: number): number {
   if (!isCorrect) return 0
   return 50 + ((streak + 1) * 10) // 50 base + streak bonus
 }
+*/
 
 export async function POST(req: NextRequest) {
+  console.log('[GAME_ANSWER] DISABLED - Using Supabase')
+  return json({ error: 'Feature temporarily disabled during migration' }, 503)
+  
+  /*
   try {
     const body = await req.json()
     const { sessionId, questionId, selectedAnswer, timeSpent } = body
@@ -116,4 +130,5 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     )
   }
+  */
 }

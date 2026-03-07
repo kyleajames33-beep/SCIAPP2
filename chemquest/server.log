@@ -1,0 +1,13 @@
+
+> dev
+> next dev
+
+  ▲ Next.js 14.2.28
+  - Local:        http://localhost:54112
+  - Environments: .env.local, .env
+
+ ✓ Starting...
+ ✓ Ready in 2.3s
+ ○ Compiling /simple-quiz ...
+ ✓ Compiled /simple-quiz in 4.1s (522 modules)
+ GET /simple-quiz 200 in 4527ms

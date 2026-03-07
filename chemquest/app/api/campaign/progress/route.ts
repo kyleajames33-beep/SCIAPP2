@@ -1,10 +1,21 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+// import { NextResponse } from 'next/server';
+// import { prisma } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
 export async function GET() {
+  console.log('[CAMPAIGN_PROGRESS] DISABLED - Using Supabase')
+  return json({ error: 'Feature temporarily disabled during migration' }, 503)
+  
+  /*
   try {
     const user = await getSessionUser();
     if (!user) {
@@ -42,4 +53,5 @@ export async function GET() {
       { status: 500 }
     );
   }
+  */
 }

@@ -1,7 +1,14 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+// import { NextResponse } from 'next/server';
+// import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
 
 // ─── Upgrade Configuration ───────────────────────────────────
 // Kit Mode enterprise upgrades with costs and effects
@@ -96,6 +103,10 @@ interface PrestigePayload {
 }
 
 export async function POST(request: Request) {
+  console.log('[GAME_ACTION] DISABLED - Using Supabase')
+  return json({ error: 'Feature temporarily disabled during migration' }, 503)
+  
+  /*
   try {
     const body = await request.json();
     const { action, payload } = body as { action: ActionType; payload: unknown };
@@ -122,10 +133,15 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+  */
 }
 
 // ─── BUY_UPGRADE Handler ─────────────────────────────────────
 async function handleBuyUpgrade(payload: BuyUpgradePayload) {
+  console.log('[GAME_ACTION_BUY_UPGRADE] DISABLED - Using Supabase')
+  return json({ error: 'Feature temporarily disabled during migration' }, 503)
+  
+  /*
   const { userId, upgradeId } = payload;
 
   if (!userId || !upgradeId) {
@@ -211,10 +227,15 @@ async function handleBuyUpgrade(payload: BuyUpgradePayload) {
     success: true,
     ...result,
   });
+  */
 }
 
 // ─── BOSS_DAMAGE Handler ─────────────────────────────────────
 async function handleBossDamage(payload: BossDamagePayload) {
+  console.log('[GAME_ACTION_BOSS_DAMAGE] DISABLED - Using Supabase')
+  return json({ error: 'Feature temporarily disabled during migration' }, 503)
+  
+  /*
   const { sessionId, isCorrect, streak, userId } = payload;
 
   if (!sessionId) {
@@ -280,10 +301,15 @@ async function handleBossDamage(payload: BossDamagePayload) {
     bossMaxHp: session.bossMaxHp,
     bossDefeated,
   });
+  */
 }
 
 // ─── COLLECT_GEMS Handler ────────────────────────────────────
 async function handleCollectGems(payload: CollectGemsPayload) {
+  console.log('[GAME_ACTION_COLLECT_GEMS] DISABLED - Using Supabase')
+  return json({ error: 'Feature temporarily disabled during migration' }, 503)
+  
+  /*
   const { userId, floorReached } = payload;
 
   if (!userId || floorReached === undefined) {
@@ -317,10 +343,15 @@ async function handleCollectGems(payload: CollectGemsPayload) {
     totalGems: user.gems,
     milestonesReached,
   });
+  */
 }
 
 // ─── PRESTIGE Handler ────────────────────────────────────────
 async function handlePrestige(payload: PrestigePayload) {
+  console.log('[GAME_ACTION_PRESTIGE] DISABLED - Using Supabase')
+  return json({ error: 'Feature temporarily disabled during migration' }, 503)
+  
+  /*
   const { userId } = payload;
 
   if (!userId) {
@@ -377,10 +408,15 @@ async function handlePrestige(payload: PrestigePayload) {
     success: true,
     ...result,
   });
+  */
 }
 
 // ─── GET: Retrieve upgrade config and user upgrades ──────────
 export async function GET(request: Request) {
+  console.log('[GAME_ACTION_GET] DISABLED - Using Supabase')
+  return json({ error: 'Feature temporarily disabled during migration' }, 503)
+  
+  /*
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('userId');
 
@@ -411,4 +447,5 @@ export async function GET(request: Request) {
     bossConfig: BOSS_CONFIG,
     towerConfig: TOWER_CONFIG,
   });
+  */
 }
