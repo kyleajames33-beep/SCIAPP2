@@ -1,91 +1,74 @@
-import { NextRequest, NextResponse } from 'next/server'
-// import { prisma } from '@/lib/db'
-// import { getSessionUser } from '@/lib/auth'
+import { NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 
-// Get question sets (public sets + user's own sets)
-export async function GET(req: NextRequest) {
-  console.log('[QUESTIONS_SETS] DISABLED - Using Supabase')
-  return NextResponse.json(
-    { error: 'Feature temporarily disabled during migration' },
-    { status: 503 }
-  )
-  
-  /*
+export async function GET() {
   try {
-    const user = await getSessionUser()
-    const { searchParams } = new URL(req.url)
-    const includeDefault = searchParams.get('includeDefault') === 'true'
+    const { data: sets, error } = await supabaseAdmin
+      .from('QuestionSet')
+      .select(`
+        id,
+        name,
+        description,
+        subject,
+        module,
+        isPublic,
+        creatorId,
+        createdAt
+      `)
+      .eq('isPublic', true)
+      .order('id', { ascending: true })
 
-    const whereClause: Record<string, unknown> = {
-      OR: [
-        { isPublic: true },
-        ...(user ? [{ creatorId: user.id }] : []),
-      ],
+    if (error) {
+      console.error('[QUESTIONS_SETS] Supabase error:', error)
+      return NextResponse.json({ error: 'Failed to fetch question sets' }, { status: 500 })
     }
 
-    const questionSets = await prisma.questionSet.findMany({
-      where: whereClause,
-      include: {
-        creator: {
-          select: {
-            username: true,
-            displayName: true,
-          },
-        },
-        _count: {
-          select: { questions: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+    // Get question counts per set
+    const { data: counts, error: countError } = await supabaseAdmin
+      .from('Question')
+      .select('questionSetId')
+      .not('questionSetId', 'is', null)
 
-    // Count default questions (questions without a questionSetId)
-    let defaultSet = null
-    if (includeDefault) {
-      const defaultQuestionsCount = await prisma.question.count({
-        where: { questionSetId: null },
-      })
-
-      if (defaultQuestionsCount > 0) {
-        defaultSet = {
-          id: null,
-          name: 'HSC Chemistry Module 1',
-          description: 'Default question set covering Properties and Structure of Matter',
-          subject: 'Chemistry',
-          module: 'Module 1',
-          isPublic: true,
-          creatorId: null,
-          creator: { username: 'system', displayName: 'ChemQuest' },
-          _count: { questions: defaultQuestionsCount },
-          createdAt: null,
+    const countMap: Record<string, number> = {}
+    if (!countError && counts) {
+      for (const q of counts) {
+        if (q.questionSetId) {
+          countMap[q.questionSetId] = (countMap[q.questionSetId] || 0) + 1
         }
       }
     }
 
-    const sets = defaultSet ? [defaultSet, ...questionSets] : questionSets
-
     return NextResponse.json({
-      sets: sets.map(set => ({
+      data: (sets || []).map(set => ({
         id: set.id,
         name: set.name,
         description: set.description,
         subject: set.subject,
         module: set.module,
         isPublic: set.isPublic,
-        creatorUsername: set.creator?.username || 'system',
-        creatorDisplayName: set.creator?.displayName || 'ChemQuest',
-        questionCount: set._count?.questions || 0,
-        isOwned: user ? set.creatorId === user.id : false,
+        creatorUsername: 'chemquest_system',
+        creatorDisplayName: 'ChemQuest',
+        questionCount: countMap[set.id] || 0,
+        isOwned: false,
+      })),
+      // Also expose as `sets` for legacy frontend compatibility
+      sets: (sets || []).map(set => ({
+        id: set.id,
+        name: set.name,
+        description: set.description,
+        subject: set.subject,
+        module: set.module,
+        isPublic: set.isPublic,
+        creatorUsername: 'chemquest_system',
+        creatorDisplayName: 'ChemQuest',
+        questionCount: countMap[set.id] || 0,
+        isOwned: false,
       })),
     })
   } catch (error) {
-    console.error('Get question sets error:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch question sets' },
-      { status: 500 }
-    )
+    console.error('[QUESTIONS_SETS] Error:', error)
+    return NextResponse.json({ error: 'Failed to fetch question sets' }, { status: 500 })
   }
-  */
 }
