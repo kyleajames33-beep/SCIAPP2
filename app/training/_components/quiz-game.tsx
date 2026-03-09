@@ -59,6 +59,13 @@ export default function QuizGame() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const subjectFromUrl = searchParams.get('subject') || 'Chemistry'
+  const worldId = searchParams.get('worldId')
+  const worldToSetId: Record<string, string> = {
+    'module-1': 'qs-m1',
+    'module-2': 'qs-m2',
+    'module-3': 'qs-m3',
+  }
+  const resolvedSetId = worldId ? (worldToSetId[worldId] ?? null) : null
   
   // Screen shake animation
   const screenControls = useAnimation()
@@ -264,7 +271,7 @@ export default function QuizGame() {
   }, [bossDefeated, gameMode, gameState])
 
   // Question set state
-  const [questionSetId, setQuestionSetId] = useState<string | null>(null)
+  const [questionSetId, setQuestionSetId] = useState<string | null>(resolvedSetId)
 
   const selectMode = (mode: GameMode, qSetId?: string | null) => {
     setGameMode(mode)
