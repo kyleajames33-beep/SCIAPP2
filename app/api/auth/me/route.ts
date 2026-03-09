@@ -1,58 +1,18 @@
-import { NextResponse } from 'next/server';
-// import { getSessionUser } from '@/lib/auth';
+import { NextResponse } from 'next/server'
 
-export const dynamic = 'force-dynamic';
+export async function GET(request: Request) {
+  const authHeader = request.headers.get('authorization') || ''
 
-export async function GET() {
-  console.log('[AUTH_ME] DISABLED - Using Supabase');
-  return NextResponse.json(
-    { error: 'Feature temporarily disabled during migration' },
-    { status: 503 }
-  );
-  
-  /*
-  try {
-    const user = await getSessionUser();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      );
-    }
-
-    return NextResponse.json({
-      user: {
-        id: user.id,
-        username: user.username,
-        displayName: user.displayName,
-        email: user.email,
-        role: user.role,
-        totalCoins: user.totalCoins,
-        totalScore: user.totalScore,
-        gamesPlayed: user.gamesPlayed,
-        bestStreak: user.bestStreak,
-        rank: user.rank,
-        campaignXp: user.campaignXp,
-        subscriptionTier: user.subscriptionTier,
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/auth-me`,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': authHeader,
       },
-      // Keep flat fields for backward compatibility
-      userId: user.id,
-      username: user.username,
-      displayName: user.displayName,
-      email: user.email,
-      role: user.role,
-      totalCoins: user.totalCoins,
-      totalScore: user.totalScore,
-      gamesPlayed: user.gamesPlayed,
-      bestStreak: user.bestStreak,
-    });
-  } catch (error) {
-    console.error('Get user error:', error);
-    return NextResponse.json(
-      { error: 'Failed to get user' },
-      { status: 500 }
-    );
-  }
-  */
+    }
+  )
+
+  const data = await res.json()
+  return NextResponse.json(data, { status: res.status })
 }

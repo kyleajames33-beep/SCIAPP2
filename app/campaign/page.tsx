@@ -231,8 +231,8 @@ export default function CampaignPage() {
     async function load() {
       try {
         const meRes = await fetch('/api/auth/me');
-        if (!meRes.ok) { router.push('/auth/login'); return; }
         const meData = await meRes.json();
+        if (!meRes.ok && !meData?.isGuest) { router.push('/auth/login'); return; }
         setUserTier(meData.user?.subscriptionTier || 'free');
 
         const progRes = await fetch('/api/campaign/progress');
