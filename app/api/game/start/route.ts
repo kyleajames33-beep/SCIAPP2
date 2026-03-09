@@ -11,19 +11,17 @@ const GAME_MODE_CONFIG: Record<GameMode, {
   lives?: number
   bossHp?: number
 }> = {
-  classic: { questions: 10, timePerQuestion: 30 },
-  rush: { questions: 20, timePerQuestion: 15 },
-  survival: { questions: 50, timePerQuestion: 25, lives: 3 },
-  boss_battle: { questions: 15, timePerQuestion: 20, bossHp: 1000 },
-  tower_climb: { questions: 100, timePerQuestion: 30, lives: 3 },
+  classic:      { questions: 10,  timePerQuestion: 30 },
+  rush:         { questions: 20,  timePerQuestion: 15 },
+  survival:     { questions: 50,  timePerQuestion: 25, lives: 3 },
+  boss_battle:  { questions: 15,  timePerQuestion: 20, bossHp: 1000 },
+  tower_climb:  { questions: 100, timePerQuestion: 30, lives: 3 },
 }
 
 function generateGameCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   let code = ''
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)]
   return code
 }
 
@@ -34,22 +32,23 @@ function generateId() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}))
-    const gameMode: GameMode = body?.gameMode || 'classic'
+    const gameMode: GameMode = (body?.gameMode as GameMode) || 'classic'
     const setId: string | null = body?.questionSetId || body?.setId || null
-    const questionCount: number | null = body?.questionCount || null
+    const questionCount: number = body?.questionCount || 0
     const config = GAME_MODE_CONFIG[gameMode] || GAME_MODE_CONFIG.classic
     const totalQuestions = questionCount || config.questions
 
-    // Fetch questions from the specified set (or random from all sets)
-    let query = supabaseAdmin.from('Question').select(
-      'id, question, "optionA", "optionB", "optionC", "optionD", subject, topic, difficulty, explanation'
-    )
+    // Fetch questions for the specified set (or all non-boss questions)
+    let query = supabaseAdmin
+      .from('Question')
+      .select('id, question, optionA, optionB, optionC, optionD, subject, topic, difficulty')
 
     if (setId) {
       query = query.eq('questionSetId', setId)
     } else {
-      // Pull from all public sets (exclude boss questions for default games)
-      query = query.not('questionSetId', 'is', null).neq('questionSetId', 'qs-boss')
+      query = query
+        .not('questionSetId', 'is', null)
+        .neq('questionSetId', 'qs-boss')
     }
 
     const { data: allQuestions, error: qError } = await query
@@ -63,12 +62,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No questions found for this set' }, { status: 404 })
     }
 
-    // Shuffle and select
+    // Shuffle and slice
     const shuffled = [...allQuestions].sort(() => 0.5 - Math.random())
-    const selectedQuestions = shuffled.slice(0, totalQuestions)
-    const questionIds = selectedQuestions.map(q => q.id)
+    const selected = shuffled.slice(0, totalQuestions)
+    const questionIds = selected.map((q: { id: string }) => q.id)
 
-    // Create GameSession row
+    // Create GameSession
     const sessionId = generateId()
     const gameCode = generateGameCode()
 
@@ -76,13 +75,13 @@ export async function POST(req: NextRequest) {
       id: sessionId,
       gameCode,
       gameMode,
-      totalQuestions: selectedQuestions.length,
+      totalQuestions: selected.length,
       questionIds: JSON.stringify(questionIds),
       questionSetId: setId || null,
       gameStatus: 'playing',
       bossHp: config.bossHp || null,
       bossMaxHp: config.bossHp || null,
-      currentFloor: gameMode === 'tower_climb' ? 0 : 0,
+      currentFloor: 0,
     })
 
     if (sessionError) {
@@ -90,51 +89,61 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to create game session' }, { status: 500 })
     }
 
+    const questions = selected.map((q: {
+      id: string
+      question: string
+      optionA: string
+      optionB: string
+      optionC: string
+      optionD: string
+      subject: string
+      topic: string
+      difficulty: string
+    }) => ({
+      id: q.id,
+      question: q.question,
+      optionA: q.optionA,
+      optionB: q.optionB,
+      optionC: q.optionC,
+      optionD: q.optionD,
+      subject: q.subject || 'Chemistry',
+      topic: q.topic || '',
+      difficulty: q.difficulty || '',
+    }))
+
     return NextResponse.json({
+      // Top-level fields (legacy format)
       sessionId,
       gameId: sessionId,
       gameCode,
       gameMode,
       campaign: null,
+      user: null,
       config: {
         timePerQuestion: config.timePerQuestion,
         timeLimitSeconds: config.timePerQuestion,
-        lives: config.lives,
-        totalQuestions: selectedQuestions.length,
-        bossHp: config.bossHp,
-        bossMaxHp: config.bossHp,
+        lives: config.lives || null,
+        totalQuestions: selected.length,
+        bossHp: config.bossHp || null,
+        bossMaxHp: config.bossHp || null,
       },
-      user: null,
-      questions: selectedQuestions.map(q => ({
-        id: q.id,
-        question: q.question,
-        optionA: q.optionA,
-        optionB: q.optionB,
-        optionC: q.optionC,
-        optionD: q.optionD,
-        // correctAnswer intentionally omitted
-        subject: q.subject || 'Chemistry',
-        topic: q.topic || '',
-        difficulty: q.difficulty || '',
-      })),
+      questions,
+      // Nested data format
       data: {
         gameId: sessionId,
+        sessionId,
         timeLimitSeconds: config.timePerQuestion,
-        questions: selectedQuestions.map(q => ({
-          id: q.id,
-          question: q.question,
-          optionA: q.optionA,
-          optionB: q.optionB,
-          optionC: q.optionC,
-          optionD: q.optionD,
-          subject: q.subject || 'Chemistry',
-          topic: q.topic || '',
-          difficulty: q.difficulty || '',
-        })),
+        questions,
+        config: {
+          timePerQuestion: config.timePerQuestion,
+          timeLimitSeconds: config.timePerQuestion,
+          lives: config.lives || null,
+          totalQuestions: selected.length,
+        },
       },
     })
-  } catch (error) {
-    console.error('[GAME_START] Error:', error)
+  } catch (err) {
+    console.error('[GAME_START] Unexpected error:', err)
     return NextResponse.json({ error: 'Failed to start game' }, { status: 500 })
   }
 }
