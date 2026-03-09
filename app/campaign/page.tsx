@@ -317,7 +317,7 @@ export default function CampaignPage() {
                         return (
                           <div
                             key={chamber.id}
-                            onClick={() => !chamberLocked && router.push(`/training/${world.id}/${chamber.id}`)}
+                            onClick={() => !chamberLocked && router.push(`/training?worldId=${world.id}&chamberId=${chamber.id}`)}
                             className={`p-3 rounded-lg border ${
                               prog?.completed
                                 ? 'bg-green-500/10 border-green-500/30'
