@@ -272,6 +272,11 @@ export default function QuizGame() {
 
   // Question set state
   const [questionSetId, setQuestionSetId] = useState<string | null>(resolvedSetId)
+  useEffect(() => {
+    if (resolvedSetId && !questionSetId) {
+      setQuestionSetId(resolvedSetId)
+    }
+  }, [resolvedSetId])
 
   const selectMode = (mode: GameMode, qSetId?: string | null) => {
     setGameMode(mode)
