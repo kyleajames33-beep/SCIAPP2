@@ -280,7 +280,7 @@ export default function QuizGame() {
 
   const selectMode = (mode: GameMode, qSetId?: string | null) => {
     setGameMode(mode)
-    setQuestionSetId(qSetId ?? null)
+    setQuestionSetId(qSetId ?? resolvedSetId ?? null)
     setGameState('lobby')
   }
 
