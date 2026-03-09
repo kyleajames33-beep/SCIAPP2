@@ -1,13 +1,20 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
+  // Create client inside handler so env vars are available at request time
+  const db = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+
   try {
-    const { data: sets, error } = await supabaseAdmin
+    const { data: sets, error } = await db
       .from('QuestionSet')
-      .select('id, name, description, subject, module, isPublic, creatorId, createdAt')
+      .select('id, name, description, subject, module, isPublic, creatorId')
       .eq('isPublic', true)
       .order('id', { ascending: true })
 
@@ -17,13 +24,8 @@ export async function GET() {
     }
 
     const mapped = (sets || []).map((set: {
-      id: string
-      name: string
-      description: string | null
-      subject: string
-      module: string | null
-      isPublic: boolean
-      creatorId: string
+      id: string; name: string; description: string | null
+      subject: string; module: string | null; isPublic: boolean; creatorId: string
     }) => ({
       id: set.id,
       name: set.name,
