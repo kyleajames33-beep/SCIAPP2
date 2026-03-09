@@ -22,6 +22,7 @@ interface QuestionSet {
 type ModeSelectProps = {
   onSelectMode: (mode: GameMode, questionSetId?: string | null) => void
   onCustomize?: () => void
+  initialSetId?: string | null
 }
 
 const MODE_ICONS: Record<GameMode, React.ReactNode> = {
@@ -32,9 +33,9 @@ const MODE_ICONS: Record<GameMode, React.ReactNode> = {
   tower_climb: <Mountain className="w-8 h-8" />,
 }
 
-export function ModeSelect({ onSelectMode, onCustomize }: ModeSelectProps) {
+export function ModeSelect({ onSelectMode, onCustomize, initialSetId }: ModeSelectProps) {
   const [questionSets, setQuestionSets] = useState<QuestionSet[]>([])
-  const [selectedSetId, setSelectedSetId] = useState<string | null>(null)
+  const [selectedSetId, setSelectedSetId] = useState<string | null>(initialSetId ?? null)
   const [isLoadingSets, setIsLoadingSets] = useState(true)
 
   useEffect(() => {
@@ -43,8 +44,8 @@ export function ModeSelect({ onSelectMode, onCustomize }: ModeSelectProps) {
         const response = await fetch('/api/questions/sets?includeDefault=true')
         const data = await response.json()
         setQuestionSets(data.sets || [])
-        // Select default set by default
-        if (data.sets?.length > 0) {
+        // If no initialSetId was provided, select the first set by default
+        if (!initialSetId && data.sets?.length > 0) {
           setSelectedSetId(data.sets[0].id)
         }
       } catch (error) {
@@ -55,6 +56,12 @@ export function ModeSelect({ onSelectMode, onCustomize }: ModeSelectProps) {
     }
     fetchSets()
   }, [])
+
+  useEffect(() => {
+    if (initialSetId) {
+      setSelectedSetId(initialSetId)
+    }
+  }, [initialSetId])
 
   const selectedSet = questionSets.find(s => s.id === selectedSetId)
 

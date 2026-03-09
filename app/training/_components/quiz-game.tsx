@@ -1307,7 +1307,7 @@ export default function QuizGame() {
   if (gameState === 'mode-select') {
     return (
       <>
-        <ModeSelect onSelectMode={selectMode} onCustomize={() => setShowCustomizer(true)} />
+        <ModeSelect onSelectMode={selectMode} onCustomize={() => setShowCustomizer(true)} initialSetId={resolvedSetId} />
         
         {/* Character Customizer Modal */}
         {showCustomizer && (
