@@ -14,7 +14,7 @@ export async function GET() {
   try {
     const { data: sets, error } = await db
       .from('QuestionSet')
-      .select('id, name, description, subject, module, isPublic, creatorId')
+      .select('id, name, description, subject, module, isPublic, creatorId, Question(count)')
       .eq('isPublic', true)
       .order('id', { ascending: true })
 
@@ -26,6 +26,7 @@ export async function GET() {
     const mapped = (sets || []).map((set: {
       id: string; name: string; description: string | null
       subject: string; module: string | null; isPublic: boolean; creatorId: string
+      Question: { count: number }[]
     }) => ({
       id: set.id,
       name: set.name,
@@ -35,7 +36,7 @@ export async function GET() {
       isPublic: set.isPublic,
       creatorUsername: 'chemquest_system',
       creatorDisplayName: 'ChemQuest',
-      questionCount: 0,
+      questionCount: set.Question?.[0]?.count ?? 0,
       isOwned: false,
     }))
 
