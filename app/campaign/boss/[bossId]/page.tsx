@@ -68,6 +68,10 @@ export default function BossBattlePage() {
   const params = useParams();
   const router = useRouter();
   const bossId = params.bossId as string;
+  // Optional questionSetId from URL — chambers pass their module's set
+  const questionSetId = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('questionSetId')
+    : null;
   
   const [boss, setBoss] = useState<BossState | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -120,8 +124,9 @@ export default function BossBattlePage() {
       shieldHp: 0
     });
 
-    // Fetch questions
-    fetch("/api/questions?count=15&difficulty=medium")
+    // Fetch questions — use module set if coming from a chamber, otherwise random
+    const qs = questionSetId ? `&questionSetId=${questionSetId}` : ''
+    fetch(`/api/questions?count=15${qs}`)
       .then(res => res.json())
       .then(data => {
         setQuestions(data.questions || []);

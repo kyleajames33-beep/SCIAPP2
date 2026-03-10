@@ -20,7 +20,21 @@
       "Bash(python3:*)",
       "Bash(npm cache clean:*)",
       "Bash(grep:*)",
-      "Bash(node -p:*)"
+      "Bash(node -p:*)",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "mcp__claude_ai_Supabase__list_tables",
+      "Bash(npx tsc --noEmit)",
+      "Bash(ls -la public/sounds/*.mp3)",
+      "Bash(vercel ls)",
+      "Bash(vercel ls --yes)",
+      "Bash(vercel inspect sciapp-4-7alb5x37h-kyle-james-projects-9270c4a1.vercel.app --wait)",
+      "Bash(vercel inspect sciapp-2-puk1izdw9-kyle-james-projects-9270c4a1.vercel.app --wait)",
+      "Bash(vercel logs dpl_CMoSE8NQmU7myPpSVbHYj4iFRVmz)",
+      "Bash(vercel build)",
+      "Bash(vercel pull --yes)",
+      "Bash(vercel --prod --yes)",
+      "Bash(vercel inspect sciapp-4.vercel.app)",
+      "Bash(vercel ls sciapp-4 --yes)"
     ]
   }
 }

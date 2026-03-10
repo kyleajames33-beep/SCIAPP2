@@ -14,6 +14,12 @@ import {
 import { toast } from 'sonner';
 
 // Campaign data - will be loaded from campaign.json in future
+const WORLD_TO_SET_ID: Record<string, string> = {
+  'module-1': 'qs-m1',
+  'module-2': 'qs-m2',
+  'module-3': 'qs-m3',
+}
+
 const WORLDS = [
   {
     id: 'module-1',
@@ -344,10 +350,12 @@ export default function CampaignPage() {
                             </div>
                           </div>
                         );
+                        const setId = WORLD_TO_SET_ID[world.id]
+                        const bossHref = `/campaign/boss/${world.boss.id}${setId ? `?questionSetId=${setId}` : ''}`
                         return chamberLocked ? (
                           <div key={chamber.id}>{inner}</div>
                         ) : (
-                          <Link key={chamber.id} href={`/training?worldId=${world.id}&chamberId=${chamber.id}`}>
+                          <Link key={chamber.id} href={bossHref}>
                             {inner}
                           </Link>
                         );
