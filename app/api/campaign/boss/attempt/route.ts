@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { checkRankUp } from "@/lib/ranks";
 
 export const dynamic = "force-dynamic";
 
@@ -98,10 +99,14 @@ export async function POST(request: NextRequest) {
       .eq("id", userId)
       .single();
 
+    let rankUpResult = null;
     if (user) {
+      const previousXp = user.campaignXp ?? 0;
+      const newXp = previousXp + rewards.xp;
+
       await db.from("User").update({
         totalScore:     (user.totalScore     ?? 0) + rewards.xp,
-        campaignXp:     (user.campaignXp     ?? 0) + rewards.xp,
+        campaignXp:     newXp,
         totalCoins:     (user.totalCoins     ?? 0) + rewards.coins,
         gems:           (user.gems           ?? 0) + rewards.gems,
         gamesPlayed:    (user.gamesPlayed    ?? 0) + 1,
@@ -110,9 +115,17 @@ export async function POST(request: NextRequest) {
         totalIncorrect: (user.totalIncorrect ?? 0) + (questionsAnswered - correctAnswers),
         bestStreak:     Math.max(user.bestStreak ?? 0, streak),
       }).eq("id", userId);
+
+      const { didRankUp, previousRank, newRank } = checkRankUp(previousXp, newXp);
+      if (didRankUp) {
+        rankUpResult = {
+          previous: { name: previousRank.name, symbol: previousRank.symbol, gradient: previousRank.gradient },
+          new: { name: newRank.name, symbol: newRank.symbol, gradient: newRank.gradient },
+        };
+      }
     }
 
-    return json({ rewards, rankUp: null });
+    return json({ rewards, rankUp: rankUpResult });
   } catch (error) {
     console.error("[BOSS_ATTEMPT]", error);
     return json({ error: "Internal server error" }, 500);

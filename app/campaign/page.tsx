@@ -9,6 +9,7 @@ import {
   Lock, CheckCircle, Skull, Flame, Crown,
   Atom, FlaskConical, Zap, Loader2, ChevronRight, ShoppingBag, Coins,
 } from 'lucide-react';
+import { getRank, getRankProgress, getNextRank } from '@/lib/ranks';
 import { toast } from 'sonner';
 
 // Module → QuestionSet mapping
@@ -97,6 +98,7 @@ export default function CampaignPage() {
   const [progress, setProgress] = useState<ProgressEntry[]>([]);
   const [userTier, setUserTier] = useState('free');
   const [coins, setCoins] = useState<number | null>(null);
+  const [campaignXp, setCampaignXp] = useState<number>(0);
 
   useEffect(() => {
     async function load() {
@@ -105,6 +107,7 @@ export default function CampaignPage() {
         const meData = await meRes.json();
         setUserTier(meData.user?.subscriptionTier || 'free');
         if (meData.user?.totalCoins != null) setCoins(meData.user.totalCoins);
+        if (meData.user?.campaignXp != null) setCampaignXp(meData.user.campaignXp);
 
         const progRes = await fetch('/api/campaign/progress');
         if (progRes.ok) {
@@ -143,29 +146,65 @@ export default function CampaignPage() {
     >
       {/* Header */}
       <div className="sticky top-0 z-20 border-b border-white/5" style={{ background: 'rgba(13,17,23,0.95)', backdropFilter: 'blur(12px)' }}>
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div>
-            <h1 className="text-white font-bold text-lg leading-tight">ChemQuest</h1>
-            <p className="text-white/40 text-xs">Campaign · HSC Chemistry</p>
+        <div className="max-w-3xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-white font-bold text-lg leading-tight">ChemQuest</h1>
+              <p className="text-white/40 text-xs">Campaign · HSC Chemistry</p>
+            </div>
+            <div className="flex items-center gap-3">
+              {coins !== null && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-sm font-bold">
+                  <Coins className="w-3.5 h-3.5" />
+                  {coins.toLocaleString()}
+                </div>
+              )}
+              <Link href="/shop">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all text-sm">
+                  <ShoppingBag className="w-3.5 h-3.5" /> Shop
+                </div>
+              </Link>
+              {userTier !== 'free' && (
+                <Badge className="bg-yellow-500/20 text-yellow-300 border-yellow-500/30 text-xs">
+                  <Crown className="w-3 h-3 mr-1" /> Pro
+                </Badge>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            {coins !== null && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-sm font-bold">
-                <Coins className="w-3.5 h-3.5" />
-                {coins.toLocaleString()}
+
+          {/* XP bar + rank */}
+          {(() => {
+            const rank = getRank(campaignXp);
+            const nextRank = getNextRank(campaignXp);
+            const progress = getRankProgress(campaignXp);
+            return (
+              <div className="mt-2 flex items-center gap-3">
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0"
+                  style={{ background: rank.color + '33', color: rank.color, border: `1px solid ${rank.color}50` }}
+                >
+                  {rank.symbol}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-white/60 text-xs font-medium">{rank.name}</span>
+                    <span className="text-white/30 text-xs">
+                      {nextRank ? `${campaignXp} / ${nextRank.minXp} XP → ${nextRank.name}` : `${campaignXp} XP · Max Rank`}
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full rounded-full"
+                      style={{ background: rank.color }}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${progress}%` }}
+                      transition={{ duration: 1, ease: 'easeOut' }}
+                    />
+                  </div>
+                </div>
               </div>
-            )}
-            <Link href="/shop">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all text-sm">
-                <ShoppingBag className="w-3.5 h-3.5" /> Shop
-              </div>
-            </Link>
-            {userTier !== 'free' && (
-              <Badge className="bg-yellow-500/20 text-yellow-300 border-yellow-500/30 text-xs">
-                <Crown className="w-3 h-3 mr-1" /> Pro
-              </Badge>
-            )}
-          </div>
+            );
+          })()}
         </div>
       </div>
 
