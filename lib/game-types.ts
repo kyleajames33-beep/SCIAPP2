@@ -14,6 +14,7 @@ export type Question = {
   correctAnswer?: number // Only available after answering
   topic: string
   difficulty: 'easy' | 'medium' | 'hard'
+  explanation?: string
 }
 
 export type QuestionWithAnswer = Question & {
