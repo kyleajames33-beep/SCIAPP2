@@ -46,7 +46,6 @@ interface QuestionRow {
   topic: string
   difficulty: string
   explanation: string | null
-  questionSetId: string | null
 }
 
 // ─── Client ───────────────────────────────────────────────────────────────────
@@ -78,7 +77,8 @@ function toRow(q: RawQuestion): QuestionRow {
     topic: q.topic ?? 'General',
     difficulty: q.difficulty ?? 'Foundation',
     explanation: q.explanation ?? null,
-    questionSetId: null, // global questions — not tied to a teacher set
+    // NOTE: questionSetId is intentionally omitted — upsert will not overwrite
+    // existing questionSetId values set by migration scripts.
   }
 }
 

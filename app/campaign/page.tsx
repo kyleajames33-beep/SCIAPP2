@@ -314,10 +314,8 @@ export default function CampaignPage() {
                       {world.chambers.map((chamber) => {
                         const prog = getChamberProgress(chamber.id);
                         const chamberLocked = !chamber.free && userTier === 'free';
-                        return (
+                        const inner = (
                           <div
-                            key={chamber.id}
-                            onClick={() => !chamberLocked && router.push(`/training?worldId=${world.id}&chamberId=${chamber.id}`)}
                             className={`p-3 rounded-lg border ${
                               prog?.completed
                                 ? 'bg-green-500/10 border-green-500/30'
@@ -345,6 +343,13 @@ export default function CampaignPage() {
                               ) : null}
                             </div>
                           </div>
+                        );
+                        return chamberLocked ? (
+                          <div key={chamber.id}>{inner}</div>
+                        ) : (
+                          <Link key={chamber.id} href={`/training?worldId=${world.id}&chamberId=${chamber.id}`}>
+                            {inner}
+                          </Link>
                         );
                       })}
                     </div>
