@@ -12,6 +12,7 @@ export async function GET() {
 
   try {
     const { data: sets, error } = await db.rpc('get_question_sets_with_counts')
+    console.error('[DEBUG]', JSON.stringify({ sets, error }))
 
     if (error) {
       console.error('[QUESTIONS_SETS] Supabase error:', error)
