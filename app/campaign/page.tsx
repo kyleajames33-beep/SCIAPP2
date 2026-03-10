@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import {
   Lock, CheckCircle, Skull, Flame, Crown,
-  Atom, FlaskConical, Zap, Loader2, ChevronRight,
+  Atom, FlaskConical, Zap, Loader2, ChevronRight, ShoppingBag, Coins,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -96,6 +96,7 @@ export default function CampaignPage() {
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState<ProgressEntry[]>([]);
   const [userTier, setUserTier] = useState('free');
+  const [coins, setCoins] = useState<number | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -103,6 +104,7 @@ export default function CampaignPage() {
         const meRes = await fetch('/api/auth/me');
         const meData = await meRes.json();
         setUserTier(meData.user?.subscriptionTier || 'free');
+        if (meData.user?.totalCoins != null) setCoins(meData.user.totalCoins);
 
         const progRes = await fetch('/api/campaign/progress');
         if (progRes.ok) {
@@ -146,7 +148,18 @@ export default function CampaignPage() {
             <h1 className="text-white font-bold text-lg leading-tight">ChemQuest</h1>
             <p className="text-white/40 text-xs">Campaign · HSC Chemistry</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {coins !== null && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-sm font-bold">
+                <Coins className="w-3.5 h-3.5" />
+                {coins.toLocaleString()}
+              </div>
+            )}
+            <Link href="/shop">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all text-sm">
+                <ShoppingBag className="w-3.5 h-3.5" /> Shop
+              </div>
+            </Link>
             {userTier !== 'free' && (
               <Badge className="bg-yellow-500/20 text-yellow-300 border-yellow-500/30 text-xs">
                 <Crown className="w-3 h-3 mr-1" /> Pro

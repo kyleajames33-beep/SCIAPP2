@@ -96,6 +96,10 @@ export default function BossBattlePage() {
   const [playerSprite, setPlayerSprite] = useState<PlayerSprite>("idle");
   const [bossShaking, setBossShaking] = useState(false);
   const [damagePopups, setDamagePopups] = useState<DamagePopup[]>([]);
+  // Power-ups: each starts with 1 use (free starter kit)
+  const [powerUps, setPowerUps] = useState({ extraTime: 1, hint: 1, shield: 1 });
+  const [eliminatedOptions, setEliminatedOptions] = useState<number[]>([]);
+  const [playerShield, setPlayerShield] = useState(false);
 
   const popupIdRef = useRef(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -178,6 +182,32 @@ export default function BossBattlePage() {
   const calculateDamage = (isCorrect: boolean, streak: number): number => {
     if (!isCorrect) return 0;
     return 50 + streak * 10;
+  };
+
+  const useExtraTime = () => {
+    if (powerUps.extraTime <= 0 || isAnswered || boss?.phase !== "combat") return;
+    setPowerUps((p) => ({ ...p, extraTime: p.extraTime - 1 }));
+    setTimeRemaining((t) => t + 10);
+    toast.success("+10 seconds!");
+    playSound("powerup" as "correct");
+  };
+
+  const useHint = () => {
+    const q = questions[currentQuestionIndex];
+    if (powerUps.hint <= 0 || isAnswered || boss?.phase !== "combat" || !q) return;
+    // Eliminate 2 wrong answers
+    const wrongIndices = [0, 1, 2, 3].filter((i) => i !== q.correctAnswer);
+    const toEliminate = wrongIndices.sort(() => Math.random() - 0.5).slice(0, 2);
+    setPowerUps((p) => ({ ...p, hint: p.hint - 1 }));
+    setEliminatedOptions(toEliminate);
+    toast.success("Two wrong answers eliminated!");
+  };
+
+  const useShield = () => {
+    if (powerUps.shield <= 0 || boss?.phase !== "combat") return;
+    setPowerUps((p) => ({ ...p, shield: p.shield - 1 }));
+    setPlayerShield(true);
+    toast.success("Shield active — next wrong answer blocked!");
   };
 
   const checkShieldPhase = (currentHp: number, maxHp: number): boolean => {
@@ -266,8 +296,14 @@ export default function BossBattlePage() {
         return;
       }
     } else {
-      if (!boss.enraged && stats.questionsAnswered > 5) {
-        setBoss((prev) => (prev ? { ...prev, enraged: true } : null));
+      if (playerShield) {
+        // Shield absorbs the wrong answer — no streak break
+        setPlayerShield(false);
+        toast.info("Shield absorbed the wrong answer!");
+      } else {
+        if (!boss.enraged && stats.questionsAnswered > 5) {
+          setBoss((prev) => (prev ? { ...prev, enraged: true } : null));
+        }
       }
     }
 
@@ -298,6 +334,7 @@ export default function BossBattlePage() {
     setSelectedAnswer(null);
     setIsAnswered(false);
     setTimeRemaining(30);
+    setEliminatedOptions([]);
   };
 
   const submitBossAttempt = async (victory: boolean) => {
@@ -553,13 +590,16 @@ export default function BossBattlePage() {
                   const letter = ["A", "B", "C", "D"][index];
                   const isCorrectAnswer = index === currentQuestion.correctAnswer;
                   const isSelected = option === selectedAnswer;
+                  const isEliminated = eliminatedOptions.includes(index);
                   return (
                     <button
                       key={index}
                       onClick={() => handleAnswer(option)}
-                      disabled={isAnswered}
+                      disabled={isAnswered || isEliminated}
                       className={`w-full text-left text-sm py-2.5 px-3 rounded-lg border transition-all font-medium ${
-                        isAnswered
+                        isEliminated
+                          ? "opacity-20 bg-white/5 border-white/5 text-white/20 line-through cursor-not-allowed"
+                          : isAnswered
                           ? isCorrectAnswer
                             ? "bg-green-500/20 border-green-500 text-green-300"
                             : isSelected
@@ -574,6 +614,53 @@ export default function BossBattlePage() {
                   );
                 })}
               </div>
+
+              {/* Power-up bar */}
+              {!isAnswered && (
+                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-white/5">
+                  <button
+                    onClick={useExtraTime}
+                    disabled={powerUps.extraTime <= 0}
+                    title="+10 seconds"
+                    className={`flex-1 flex flex-col items-center py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                      powerUps.extraTime > 0
+                        ? "bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20 active:scale-95"
+                        : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
+                    }`}
+                  >
+                    <span className="text-base leading-none">⏱️</span>
+                    <span className="mt-0.5">+10s {powerUps.extraTime > 0 && `(${powerUps.extraTime})`}</span>
+                  </button>
+                  <button
+                    onClick={useHint}
+                    disabled={powerUps.hint <= 0 || eliminatedOptions.length > 0}
+                    title="Eliminate 2 wrong answers"
+                    className={`flex-1 flex flex-col items-center py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                      powerUps.hint > 0 && eliminatedOptions.length === 0
+                        ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/20 active:scale-95"
+                        : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
+                    }`}
+                  >
+                    <span className="text-base leading-none">💡</span>
+                    <span className="mt-0.5">Hint {powerUps.hint > 0 && `(${powerUps.hint})`}</span>
+                  </button>
+                  <button
+                    onClick={useShield}
+                    disabled={powerUps.shield <= 0 || playerShield}
+                    title="Absorb next wrong answer"
+                    className={`flex-1 flex flex-col items-center py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                      powerUps.shield > 0 && !playerShield
+                        ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 active:scale-95"
+                        : playerShield
+                        ? "bg-cyan-500/20 border-cyan-400 text-cyan-300 animate-pulse cursor-default"
+                        : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
+                    }`}
+                  >
+                    <span className="text-base leading-none">🛡️</span>
+                    <span className="mt-0.5">{playerShield ? "Active!" : `Shield ${powerUps.shield > 0 ? `(${powerUps.shield})` : ""}`}</span>
+                  </button>
+                </div>
+              )}
 
               {/* Stats row */}
               <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5 text-xs text-white/40">
