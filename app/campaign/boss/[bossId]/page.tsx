@@ -100,6 +100,11 @@ export default function BossBattlePage() {
   const [powerUps, setPowerUps] = useState({ extraTime: 1, hint: 1, shield: 1 });
   const [eliminatedOptions, setEliminatedOptions] = useState<number[]>([]);
   const [playerShield, setPlayerShield] = useState(false);
+  // Animation state
+  const [playerAttacking, setPlayerAttacking] = useState(false);
+  const [bossFlash, setBossFlash] = useState(false);
+  const [screenFlash, setScreenFlash] = useState<"correct" | "wrong" | null>(null);
+  const [animKey, setAnimKey] = useState(0); // forces re-trigger of framer animations
 
   const popupIdRef = useRef(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -222,22 +227,32 @@ export default function BossBattlePage() {
   };
 
   const triggerAttackAnimation = (isCorrect: boolean, damage: number) => {
+    setAnimKey((k) => k + 1);
     if (isCorrect) {
       setPlayerSprite("attack");
-      setTimeout(() => setBossShaking(true), 200);
+      setPlayerAttacking(true);
+      setScreenFlash("correct");
+      setTimeout(() => setScreenFlash(null), 300);
+      setTimeout(() => {
+        setBossShaking(true);
+        setBossFlash(true);
+        const id = ++popupIdRef.current;
+        setDamagePopups((prev) => [...prev, { id, value: damage }]);
+        setTimeout(() => setDamagePopups((prev) => prev.filter((p) => p.id !== id)), 1100);
+      }, 180);
       setTimeout(() => {
         setBossShaking(false);
+        setBossFlash(false);
         setPlayerSprite("idle");
-      }, 600);
-      // Floating damage popup
-      const id = ++popupIdRef.current;
-      setDamagePopups((prev) => [...prev, { id, value: damage }]);
-      setTimeout(() => setDamagePopups((prev) => prev.filter((p) => p.id !== id)), 1100);
+        setPlayerAttacking(false);
+      }, 650);
       playSound("correct");
       setTimeout(() => playSound("boss_hit"), 200);
     } else {
       setPlayerSprite("hurt");
-      setTimeout(() => setPlayerSprite("idle"), 600);
+      setScreenFlash("wrong");
+      setTimeout(() => setScreenFlash(null), 350);
+      setTimeout(() => setPlayerSprite("idle"), 650);
       playSound("wrong");
     }
   };
@@ -386,66 +401,141 @@ export default function BossBattlePage() {
     hurt: "/sprites/player_strong_hurt.png",
   };
 
+  // Particle positions (stable, generated once)
+  const particles = useRef(
+    Array.from({ length: 12 }, (_, i) => ({
+      x: 8 + (i * 7.5) % 85,
+      y: 10 + (i * 13) % 75,
+      size: 4 + (i % 3) * 3,
+      dur: 3 + (i % 4),
+      delay: (i % 5) * 0.6,
+    }))
+  ).current;
+
   return (
     <div
       className="h-screen flex flex-col overflow-hidden"
-      style={{
-        background: `linear-gradient(160deg, ${bossJsonData.particleColors[0]}33 0%, #0d0d1a 45%, ${bossJsonData.particleColors[1]}22 100%)`,
-      }}
+      style={{ background: "#0a0a14" }}
     >
       <style>{`
         @keyframes floatUp {
           0%   { opacity: 1; transform: translateY(0px) scale(1); }
-          100% { opacity: 0; transform: translateY(-70px) scale(1.4); }
+          100% { opacity: 0; transform: translateY(-80px) scale(1.5); }
         }
-        @keyframes bossShake {
-          0%, 100% { transform: translateX(0) scaleX(-1); }
-          20%       { transform: translateX(-10px) scaleX(-1); }
-          40%       { transform: translateX(10px) scaleX(-1); }
-          60%       { transform: translateX(-7px) scaleX(-1); }
-          80%       { transform: translateX(7px) scaleX(-1); }
+        @keyframes bossRecoil {
+          0%   { transform: scaleX(-1) translateX(0)  brightness(1); }
+          15%  { transform: scaleX(-1) translateX(30px) brightness(5); }
+          35%  { transform: scaleX(-1) translateX(-20px); }
+          55%  { transform: scaleX(-1) translateX(14px); }
+          75%  { transform: scaleX(-1) translateX(-8px); }
+          100% { transform: scaleX(-1) translateX(0); }
         }
-        .boss-shake { animation: bossShake 0.4s ease-in-out; }
+        @keyframes bossEnrage {
+          0%,100% { filter: drop-shadow(0 0 0px #ef4444); }
+          50%      { filter: drop-shadow(0 0 16px #ef4444); }
+        }
+        .boss-recoil { animation: bossRecoil 0.55s ease-out; }
+        .boss-enrage { animation: bossEnrage 1s ease-in-out infinite; }
       `}</style>
+
+      {/* Screen flash overlay */}
+      <AnimatePresence>
+        {screenFlash && (
+          <motion.div
+            key={screenFlash}
+            className="fixed inset-0 pointer-events-none z-50"
+            style={{ background: screenFlash === "correct" ? "#22c55e" : "#ef4444" }}
+            initial={{ opacity: 0.45 }}
+            animate={{ opacity: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Exit button */}
       <div className="absolute top-3 left-3 z-20">
         <button
           onClick={() => router.push("/campaign")}
-          className="flex items-center gap-1 text-white/50 hover:text-white text-sm transition-colors"
+          className="flex items-center gap-1 text-white/40 hover:text-white text-sm transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Exit
         </button>
       </div>
 
       {/* ── BATTLE ARENA (top ~50%) ─────────────────────────────────── */}
-      <div className="relative" style={{ height: "50vh" }}>
+      <div className="relative overflow-hidden" style={{ height: "50vh" }}>
+
+        {/* Animated background gradient */}
+        <motion.div
+          className="absolute inset-0"
+          animate={{ background: [
+            `radial-gradient(ellipse at 30% 60%, ${themeColor}18 0%, #0a0a14 55%)`,
+            `radial-gradient(ellipse at 70% 40%, ${themeColor}22 0%, #0a0a14 55%)`,
+            `radial-gradient(ellipse at 30% 60%, ${themeColor}18 0%, #0a0a14 55%)`,
+          ]}}
+          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+        />
+
+        {/* Floating particles */}
+        {particles.map((p, i) => (
+          <motion.div
+            key={i}
+            className="absolute rounded-full pointer-events-none"
+            style={{
+              left: `${p.x}%`,
+              width: p.size,
+              height: p.size,
+              background: themeColor,
+              opacity: 0.18,
+              filter: "blur(1px)",
+            }}
+            animate={{ y: [p.y + "%", (p.y - 18) + "%", p.y + "%"], opacity: [0.12, 0.28, 0.12] }}
+            transition={{ duration: p.dur, delay: p.delay, repeat: Infinity, ease: "easeInOut" }}
+          />
+        ))}
+
+        {/* Stage ground */}
+        <div
+          className="absolute bottom-0 left-0 right-0 h-12"
+          style={{
+            background: `linear-gradient(180deg, transparent 0%, ${themeColor}15 60%, ${themeColor}30 100%)`,
+            borderTop: `1px solid ${themeColor}25`,
+          }}
+        />
+
+        {/* HP bars */}
         {/* Boss HP bar — top left */}
         <div className="absolute top-4 left-4 z-10" style={{ width: "42%" }}>
           <div className="flex items-center justify-between mb-1">
             <span className="text-white font-bold text-sm truncate">{boss.name}</span>
             {boss.enraged && (
-              <span className="text-red-400 text-xs font-bold animate-pulse flex items-center gap-1">
+              <motion.span
+                animate={{ opacity: [1, 0.4, 1] }}
+                transition={{ duration: 0.5, repeat: Infinity }}
+                className="text-red-400 text-xs font-bold flex items-center gap-1"
+              >
                 <Flame className="w-3 h-3" /> ENRAGED
-              </span>
+              </motion.span>
             )}
           </div>
-          <div className="h-4 bg-black/60 rounded-full overflow-hidden border border-white/20 shadow-inner">
-            <div
-              className="h-full rounded-full transition-all duration-500 shadow-lg"
-              style={{ width: `${hpPercent}%`, backgroundColor: themeColor }}
+          <div className="h-4 bg-black/70 rounded-full overflow-hidden border border-white/15 shadow-inner">
+            <motion.div
+              className="h-full rounded-full shadow-lg"
+              animate={{ width: `${hpPercent}%` }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+              style={{
+                backgroundColor: hpPercent < 25 ? "#ef4444" : themeColor,
+                boxShadow: hpPercent < 25 ? "0 0 12px #ef4444" : `0 0 8px ${themeColor}`,
+              }}
             />
           </div>
-          <div className="text-xs text-white/40 mt-0.5">
-            {boss.currentHp} / {boss.maxHp} HP
-          </div>
+          <div className="text-xs text-white/35 mt-0.5">{boss.currentHp} / {boss.maxHp} HP</div>
           {boss.shieldActive && (
             <div className="mt-1">
-              <div className="h-2 bg-black/60 rounded-full overflow-hidden border border-blue-400/30">
-                <div
-                  className="h-full bg-blue-400 rounded-full transition-all duration-300"
-                  style={{ width: `${(boss.shieldHp / (boss.maxHp * 0.15)) * 100}%` }}
-                />
+              <div className="h-2 bg-black/60 rounded-full overflow-hidden border border-blue-400/25">
+                <div className="h-full bg-blue-400 rounded-full transition-all duration-300"
+                  style={{ width: `${(boss.shieldHp / (boss.maxHp * 0.15)) * 100}%` }} />
               </div>
               <div className="text-xs text-blue-400 mt-0.5 flex items-center gap-1">
                 <Shield className="w-3 h-3" /> Shield: {boss.shieldHp}
@@ -459,64 +549,120 @@ export default function BossBattlePage() {
           <div className="flex items-center justify-between mb-1">
             <span className="text-white font-bold text-sm">You</span>
             {stats.streak > 1 && (
-              <span className="text-orange-400 text-xs font-bold">
-                🔥 {stats.streak}x streak
-              </span>
+              <motion.span
+                key={stats.streak}
+                initial={{ scale: 1.5, color: "#fb923c" }}
+                animate={{ scale: 1, color: "#f97316" }}
+                className="text-xs font-black"
+              >
+                🔥 {stats.streak}x
+              </motion.span>
             )}
           </div>
-          <div className="h-4 bg-black/60 rounded-full overflow-hidden border border-white/20 shadow-inner">
-            <div className="h-full rounded-full bg-green-400 w-full" />
+          <div className="h-4 bg-black/70 rounded-full overflow-hidden border border-white/15 shadow-inner">
+            <div className="h-full rounded-full bg-green-400 w-full"
+              style={{ boxShadow: "0 0 8px #4ade80" }} />
           </div>
           {boss.phase === "combat" && (
-            <div
+            <motion.div
+              animate={timeRemaining <= 10 ? { opacity: [1, 0.3, 1] } : {}}
+              transition={{ duration: 0.4, repeat: Infinity }}
               className={`text-xs mt-0.5 font-mono font-bold ${
-                timeRemaining <= 10 ? "text-red-400 animate-pulse" : "text-white/40"
+                timeRemaining <= 10 ? "text-red-400" : "text-white/35"
               }`}
             >
               ⏱ {timeRemaining}s
-            </div>
+            </motion.div>
           )}
         </div>
 
         {/* Sprites */}
-        <div className="absolute inset-0 flex items-end justify-between px-10 pb-3">
+        <div className="absolute inset-0 flex items-end justify-between px-8 pb-10">
+
           {/* Player — bottom left */}
-          <div className="relative">
-            <img
-              src={playerSpriteMap[playerSprite]}
-              alt="Player"
-              className="w-28 h-28 sm:w-36 sm:h-36 object-contain drop-shadow-2xl"
-              style={{ imageRendering: "pixelated" }}
-            />
+          <div className="relative flex flex-col items-center">
+            {/* Shadow */}
+            <div className="absolute bottom-0 w-20 h-3 rounded-full"
+              style={{ background: "radial-gradient(ellipse, rgba(0,0,0,0.5) 0%, transparent 70%)", filter: "blur(3px)" }} />
+            <motion.div
+              key={`player-${animKey}`}
+              animate={
+                playerAttacking
+                  ? { x: [0, 65, 55, 0], y: [0, -5, -5, 0] }
+                  : playerSprite === "hurt"
+                  ? { x: [-8, 8, -6, 5, 0], y: [0, 3, 0] }
+                  : { y: [0, -10, 0] }
+              }
+              transition={
+                playerAttacking
+                  ? { duration: 0.45, ease: "easeInOut" }
+                  : playerSprite === "hurt"
+                  ? { duration: 0.4, ease: "easeOut" }
+                  : { duration: 2.2, repeat: Infinity, ease: "easeInOut" }
+              }
+            >
+              <img
+                src={playerSpriteMap[playerSprite]}
+                alt="Player"
+                className="w-32 h-32 sm:w-40 sm:h-40 object-contain"
+                style={{
+                  imageRendering: "pixelated",
+                  filter: playerSprite === "hurt" ? "brightness(3) saturate(0.2)" : "drop-shadow(0 4px 16px rgba(0,0,0,0.6))",
+                  transition: "filter 0.15s",
+                }}
+              />
+            </motion.div>
           </div>
 
           {/* Boss — bottom right, flipped */}
-          <div className="relative">
+          <div className="relative flex flex-col items-center">
+            {/* Shadow */}
+            <div className="absolute bottom-0 w-24 h-4 rounded-full"
+              style={{ background: "radial-gradient(ellipse, rgba(0,0,0,0.5) 0%, transparent 70%)", filter: "blur(4px)" }} />
+
             {/* Damage popups */}
             {damagePopups.map((popup) => (
-              <div
+              <motion.div
                 key={popup.id}
-                className="absolute pointer-events-none font-black text-yellow-300 text-2xl"
-                style={{
-                  animation: "floatUp 1.1s ease-out forwards",
-                  top: "-10px",
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  zIndex: 30,
-                  textShadow: "0 2px 8px rgba(0,0,0,0.8)",
-                }}
+                className="absolute pointer-events-none font-black text-yellow-300 text-3xl z-30"
+                style={{ top: "-20px", left: "50%", x: "-50%", textShadow: "0 2px 12px rgba(0,0,0,0.9)" }}
+                initial={{ opacity: 1, y: 0, scale: 1 }}
+                animate={{ opacity: 0, y: -70, scale: 1.5 }}
+                transition={{ duration: 1.1, ease: "easeOut" }}
               >
                 -{popup.value}
-              </div>
+              </motion.div>
             ))}
-            <img
-              src={bossJsonData.sprite}
-              alt={boss.name}
-              className={`w-36 h-36 sm:w-44 sm:h-44 object-contain drop-shadow-2xl ${
-                bossShaking ? "boss-shake" : ""
-              }`}
-              style={{ transform: "scaleX(-1)", imageRendering: "pixelated" }}
-            />
+
+            <motion.div
+              key={`boss-${animKey}`}
+              animate={
+                bossShaking
+                  ? { x: [0, -18, 16, -12, 8, -4, 0], y: [0, -5, 0] }
+                  : { y: [0, -15, 0] }
+              }
+              transition={
+                bossShaking
+                  ? { duration: 0.5, ease: "easeOut" }
+                  : { duration: 2.6, repeat: Infinity, ease: "easeInOut" }
+              }
+            >
+              <img
+                src={bossJsonData.sprite}
+                alt={boss.name}
+                className="w-40 h-40 sm:w-48 sm:h-48 object-contain"
+                style={{
+                  transform: "scaleX(-1)",
+                  imageRendering: "pixelated",
+                  filter: bossFlash
+                    ? "brightness(8) saturate(0)"
+                    : boss.enraged
+                    ? `drop-shadow(0 0 12px #ef4444) brightness(1.1)`
+                    : `drop-shadow(0 4px 20px ${themeColor}60)`,
+                  transition: "filter 0.12s",
+                }}
+              />
+            </motion.div>
           </div>
         </div>
       </div>
