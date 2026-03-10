@@ -278,6 +278,15 @@ export default function QuizGame() {
     }
   }, [resolvedSetId])
 
+  // When arriving from campaign (worldId in URL), skip mode-select → go straight to lobby
+  useEffect(() => {
+    if (resolvedSetId) {
+      setGameMode('classic')
+      setQuestionSetId(resolvedSetId)
+      setGameState('lobby')
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const selectMode = (mode: GameMode, qSetId?: string | null) => {
     setGameMode(mode)
     setQuestionSetId(qSetId ?? resolvedSetId ?? null)
