@@ -1,57 +1,63 @@
-// import { NextResponse } from 'next/server';
-// import { prisma } from '@/lib/db';
-// import { getSessionUser } from '@/lib/auth';
+import { NextRequest } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json' },
-  })
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
-export async function GET() {
-  console.log('[CAMPAIGN_PROGRESS] DISABLED - Using Supabase')
-  return json({ error: 'Feature temporarily disabled during migration' }, 503)
-  
-  /*
+export async function GET(request: NextRequest) {
+  // Check auth via auth-me edge function
+  const authHeader = request.headers.get("authorization") || "";
+  let userId: string | null = null;
+
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const progress = await prisma.campaignProgress.findMany({
-      where: { userId: user.id },
-      orderBy: { chamberId: 'asc' },
-    });
-
-    const bossAttempts = await prisma.bossAttempt.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    return NextResponse.json({
-      progress: progress.map((p) => ({
-        chamberId: p.chamberId,
-        worldId: p.worldId,
-        completed: p.completed,
-        bestScore: p.bestScore,
-        xpEarned: p.xpEarned,
-      })),
-      bossAttempts: bossAttempts.map((b) => ({
-        bossId: b.bossId,
-        defeated: b.defeated,
-        damageDealt: b.damageDealt,
-      })),
-    });
-  } catch (error) {
-    console.error('Campaign progress error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch campaign progress' },
-      { status: 500 }
+    const authRes = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/auth-me`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: authHeader,
+        },
+      }
     );
+    const authData = await authRes.json();
+    if (!authData.isGuest && authData.id) {
+      userId = authData.id as string;
+    }
+  } catch {
+    // treat as guest
   }
-  */
+
+  // Guest: return empty progress so the campaign map still renders
+  if (!userId) {
+    return json({ progress: [], bossAttempts: [] });
+  }
+
+  const db = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+
+  const [{ data: progress }, { data: bossAttempts }] = await Promise.all([
+    db
+      .from("CampaignProgress")
+      .select("chamberId, worldId, completed, bestScore, xpEarned")
+      .eq("userId", userId),
+    db
+      .from("BossAttempt")
+      .select("bossId, defeated, damageDealt")
+      .eq("userId", userId)
+      .order("createdAt", { ascending: false }),
+  ]);
+
+  return json({
+    progress: progress ?? [],
+    bossAttempts: bossAttempts ?? [],
+  });
 }
