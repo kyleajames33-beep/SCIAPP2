@@ -4,59 +4,82 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
-  Map, Lock, CheckCircle, Star, ArrowLeft, Loader2,
-  Beaker, Flame, Shield, Crown, Skull, ChevronRight,
+  Lock, CheckCircle, Skull, Flame, Crown,
+  Atom, FlaskConical, Zap, Loader2, ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Campaign data - will be loaded from campaign.json in future
+// Module → QuestionSet mapping
 const WORLD_TO_SET_ID: Record<string, string> = {
   'module-1': 'qs-m1',
   'module-2': 'qs-m2',
   'module-3': 'qs-m3',
-}
+};
+
+// Per-module theme (boss themeColor + a contrasting icon)
+const MODULE_THEME: Record<string, { color: string; dimColor: string; icon: React.ReactNode; bg: string }> = {
+  'module-1': {
+    color: '#10b981',
+    dimColor: '#10b98133',
+    bg: 'linear-gradient(135deg, #10b98118 0%, #0d1117 60%)',
+    icon: <Atom className="w-6 h-6" />,
+  },
+  'module-2': {
+    color: '#3b82f6',
+    dimColor: '#3b82f633',
+    bg: 'linear-gradient(135deg, #3b82f618 0%, #0d1117 60%)',
+    icon: <FlaskConical className="w-6 h-6" />,
+  },
+  'module-3': {
+    color: '#ef4444',
+    dimColor: '#ef444433',
+    bg: 'linear-gradient(135deg, #ef444418 0%, #0d1117 60%)',
+    icon: <Zap className="w-6 h-6" />,
+  },
+};
 
 const WORLDS = [
   {
     id: 'module-1',
-    name: 'Module 1: Properties & Structure of Matter',
-    description: 'Atomic structure, periodic table, bonding, and intermolecular forces.',
+    name: 'Module 1',
+    subtitle: 'Properties & Structure of Matter',
+    description: 'Atomic structure, periodic table, bonding, intermolecular forces.',
     chambers: [
-      { id: 'm1-c1', name: 'Atomic Structure', topic: 'atomic-structure', free: true },
-      { id: 'm1-c2', name: 'Periodic Table Trends', topic: 'periodic-table', free: true },
-      { id: 'm1-c3', name: 'Chemical Bonding', topic: 'bonding', free: true },
-      { id: 'm1-c4', name: 'Intermolecular Forces', topic: 'intermolecular-forces', free: true },
+      { id: 'm1-c1', name: 'Atomic Structure', free: true },
+      { id: 'm1-c2', name: 'Periodic Table', free: true },
+      { id: 'm1-c3', name: 'Chemical Bonding', free: true },
+      { id: 'm1-c4', name: 'IMF', free: true },
     ],
-    boss: { id: 'acid-baron', name: 'The Acid Baron' },
+    boss: { id: 'acid-baron', name: 'Acid Baron' },
     free: true,
   },
   {
     id: 'module-2',
-    name: 'Module 2: Introduction to Quantitative Chemistry',
+    name: 'Module 2',
+    subtitle: 'Introduction to Quantitative Chemistry',
     description: 'Moles, stoichiometry, concentrations, and gas laws.',
     chambers: [
-      { id: 'm2-c1', name: 'The Mole Concept', topic: 'moles', free: false },
-      { id: 'm2-c2', name: 'Stoichiometry', topic: 'stoichiometry', free: false },
-      { id: 'm2-c3', name: 'Concentration & Dilution', topic: 'concentration', free: false },
-      { id: 'm2-c4', name: 'Gas Laws', topic: 'gas-laws', free: false },
+      { id: 'm2-c1', name: 'The Mole', free: false },
+      { id: 'm2-c2', name: 'Stoichiometry', free: false },
+      { id: 'm2-c3', name: 'Concentration', free: false },
+      { id: 'm2-c4', name: 'Gas Laws', free: false },
     ],
-    boss: { id: 'mole-master', name: 'The Mole Master' },
+    boss: { id: 'mole-master', name: 'Mole Master' },
     free: false,
   },
   {
     id: 'module-3',
-    name: 'Module 3: Reactive Chemistry',
+    name: 'Module 3',
+    subtitle: 'Reactive Chemistry',
     description: 'Types of reactions, rates, and energy changes.',
     chambers: [
-      { id: 'm3-c1', name: 'Types of Reactions', topic: 'reaction-types', free: false },
-      { id: 'm3-c2', name: 'Reaction Rates', topic: 'rates', free: false },
-      { id: 'm3-c3', name: 'Energy Changes', topic: 'thermochem', free: false },
+      { id: 'm3-c1', name: 'Reaction Types', free: false },
+      { id: 'm3-c2', name: 'Reaction Rates', free: false },
+      { id: 'm3-c3', name: 'Energy Changes', free: false },
     ],
-    boss: { id: 'reaction-king', name: 'The Reaction King' },
+    boss: { id: 'reaction-king', name: 'Reaction King' },
     free: false,
   },
 ];
@@ -66,165 +89,6 @@ interface ProgressEntry {
   completed: boolean;
   bestScore: number;
   xpEarned: number;
-}
-
-interface World {
-  id: string;
-  name: string;
-  description: string;
-  chambers: { id: string; name: string; topic: string; free: boolean }[];
-  boss: { id: string; name: string };
-  free: boolean;
-}
-
-interface BossCardProps {
-  world: World;
-  progress: ProgressEntry[];
-  isWorldLocked: boolean;
-  userTier: string;
-}
-
-function BossCard({ world, progress, isWorldLocked, userTier }: BossCardProps) {
-  const router = useRouter();
-  
-  // Check if all chambers in this world are completed
-  const allChambersCompleted = world.chambers.every((chamber) => {
-    // If chamber is free or user is pro, check if completed
-    const chamberProgress = progress.find((p) => p.chamberId === chamber.id);
-    return chamberProgress?.completed === true;
-  });
-  
-  // Count completed chambers
-  const completedCount = world.chambers.filter((chamber) => {
-    const chamberProgress = progress.find((p) => p.chamberId === chamber.id);
-    return chamberProgress?.completed === true;
-  }).length;
-  
-  const totalChambers = world.chambers.length;
-  const isUnlocked = !isWorldLocked && allChambersCompleted;
-  
-  const handleClick = () => {
-    if (isUnlocked) {
-      router.push(`/campaign/boss/${world.boss.id}`);
-    }
-  };
-  
-  return (
-    <div
-      onClick={handleClick}
-      className={`
-        relative overflow-hidden rounded-xl border-2 transition-all duration-300
-        ${isUnlocked 
-          ? 'border-red-500/50 bg-gradient-to-r from-red-950/50 via-red-900/30 to-red-950/50 cursor-pointer hover:scale-[1.02] hover:border-red-400/70' 
-          : isWorldLocked
-            ? 'border-yellow-500/30 bg-yellow-950/20 opacity-60'
-            : 'border-gray-600/50 bg-gray-900/50 opacity-80'
-        }
-      `}
-    >
-      {/* Animated glow effect for unlocked boss */}
-      {isUnlocked && (
-        <>
-          <div className="absolute inset-0 bg-gradient-to-r from-red-500/0 via-red-500/10 to-red-500/0 animate-pulse" />
-          <motion.div
-            className="absolute -inset-1 bg-gradient-to-r from-red-600/0 via-red-500/30 to-red-600/0 rounded-xl blur-xl"
-            animate={{ 
-              opacity: [0.3, 0.6, 0.3],
-              scale: [1, 1.05, 1]
-            }}
-            transition={{ 
-              duration: 2, 
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          />
-        </>
-      )}
-      
-      <div className="relative p-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          {/* Boss Icon */}
-          <div className={`
-            w-14 h-14 rounded-full flex items-center justify-center border-2
-            ${isUnlocked 
-              ? 'bg-red-500/20 border-red-400 shadow-lg shadow-red-500/30' 
-              : 'bg-gray-700/50 border-gray-600'
-            }
-          `}>
-            {isUnlocked ? (
-              <motion.div
-                animate={{ rotate: [0, 5, -5, 0] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              >
-                <Skull className="w-7 h-7 text-red-400" />
-              </motion.div>
-            ) : (
-              <Lock className="w-6 h-6 text-gray-500" />
-            )}
-          </div>
-          
-          {/* Boss Info */}
-          <div>
-            <h3 className={`
-              font-bold text-lg
-              ${isUnlocked ? 'text-white' : 'text-gray-400'}
-            `}>
-              {world.boss.name}
-            </h3>
-            <p className="text-sm text-white/50">
-              {isUnlocked ? (
-                <span className="text-red-300 flex items-center gap-1">
-                  <Flame className="w-3 h-3" /> Click to Challenge!
-                </span>
-              ) : isWorldLocked ? (
-                <span className="flex items-center gap-1">
-                  <Crown className="w-3 h-3 text-yellow-500" /> Pro Required
-                </span>
-              ) : (
-                <span>
-                  Complete all chambers ({completedCount}/{totalChambers})
-                </span>
-              )}
-            </p>
-          </div>
-        </div>
-        
-        {/* Right side badge/indicator */}
-        <div className="flex items-center gap-2">
-          {isUnlocked ? (
-            <>
-              <Badge className="bg-red-500/20 text-red-300 border-red-500/30 animate-pulse">
-                <Skull className="w-3 h-3 mr-1" /> BOSS BATTLE
-              </Badge>
-              <ChevronRight className="w-5 h-5 text-red-400" />
-            </>
-          ) : isWorldLocked ? (
-            <Badge className="bg-yellow-500/20 text-yellow-300 border-yellow-500/30">
-              <Crown className="w-3 h-3 mr-1" /> Locked
-            </Badge>
-          ) : (
-            <Badge className="bg-gray-600/30 text-gray-400 border-gray-600/50">
-              <Lock className="w-3 h-3 mr-1" /> Locked
-            </Badge>
-          )}
-        </div>
-      </div>
-      
-      {/* Progress bar for locked but available bosses */}
-      {!isUnlocked && !isWorldLocked && (
-        <div className="px-4 pb-4">
-          <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-            <motion.div 
-              className="h-full bg-gradient-to-r from-cyan-500 to-blue-500"
-              initial={{ width: 0 }}
-              animate={{ width: `${(completedCount / totalChambers) * 100}%` }}
-              transition={{ duration: 1, delay: 0.5 }}
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  );
 }
 
 export default function CampaignPage() {
@@ -238,7 +102,6 @@ export default function CampaignPage() {
       try {
         const meRes = await fetch('/api/auth/me');
         const meData = await meRes.json();
-        if (!meRes.ok && !meData?.isGuest) { router.push('/auth/login'); return; }
         setUserTier(meData.user?.subscriptionTier || 'free');
 
         const progRes = await fetch('/api/campaign/progress');
@@ -253,145 +116,296 @@ export default function CampaignPage() {
       }
     }
     load();
-  }, [router]);
+  }, []);
 
   const getChamberProgress = (chamberId: string) =>
     progress.find((p) => p.chamberId === chamberId);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-amber-950/20 to-slate-950 flex items-center justify-center">
-        <Loader2 className="w-10 h-10 text-amber-400 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0d1117' }}>
+        <Loader2 className="w-10 h-10 text-green-400 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-amber-950/20 to-slate-950">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <Link href="/hub">
-            <Button variant="ghost" className="text-white/60 hover:text-white">
-              <ArrowLeft className="w-4 h-4 mr-2" /> Back to Hub
-            </Button>
-          </Link>
+    <div
+      className="min-h-screen"
+      style={{
+        background: '#0d1117',
+        backgroundImage: `radial-gradient(circle at 20% 50%, #10b98108 0%, transparent 50%),
+                          radial-gradient(circle at 80% 20%, #3b82f608 0%, transparent 50%),
+                          radial-gradient(circle at 50% 80%, #ef444408 0%, transparent 50%)`,
+      }}
+    >
+      {/* Header */}
+      <div className="sticky top-0 z-20 border-b border-white/5" style={{ background: 'rgba(13,17,23,0.95)', backdropFilter: 'blur(12px)' }}>
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-              <Map className="w-8 h-8 text-amber-400" /> Campaign Mode
-            </h1>
-            <p className="text-white/60">Progress through HSC Chemistry modules</p>
+            <h1 className="text-white font-bold text-lg leading-tight">ChemQuest</h1>
+            <p className="text-white/40 text-xs">Campaign · HSC Chemistry</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {userTier !== 'free' && (
+              <Badge className="bg-yellow-500/20 text-yellow-300 border-yellow-500/30 text-xs">
+                <Crown className="w-3 h-3 mr-1" /> Pro
+              </Badge>
+            )}
           </div>
         </div>
+      </div>
 
-        {/* Worlds */}
-        <div className="space-y-8 max-w-4xl mx-auto">
-          {WORLDS.map((world, wi) => {
-            const isLocked = !world.free && userTier === 'free';
-            return (
-              <motion.div
-                key={world.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: wi * 0.1 }}
+      {/* World list */}
+      <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+        {WORLDS.map((world, wi) => {
+          const isLocked = !world.free && userTier === 'free';
+          const theme = MODULE_THEME[world.id] ?? MODULE_THEME['module-1'];
+          const setId = WORLD_TO_SET_ID[world.id];
+          const bossHref = `/campaign/boss/${world.boss.id}${setId ? `?questionSetId=${setId}` : ''}`;
+
+          const completedCount = world.chambers.filter(
+            (c) => getChamberProgress(c.id)?.completed
+          ).length;
+          const allDone = completedCount === world.chambers.length;
+
+          return (
+            <motion.div
+              key={world.id}
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: wi * 0.12 }}
+            >
+              <div
+                className={`rounded-2xl border overflow-hidden ${isLocked ? 'opacity-50' : ''}`}
+                style={{
+                  background: theme.bg,
+                  borderColor: `${theme.color}30`,
+                }}
               >
-                <Card className={`bg-white/5 border-white/10 ${isLocked ? 'opacity-60' : ''}`}>
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                          {world.name}
-                          {isLocked && <Lock className="w-4 h-4 text-yellow-500" />}
-                          {!isLocked && world.free && (
-                            <Badge className="bg-green-500/20 text-green-300 border-green-500/30 text-xs">Free</Badge>
+                {/* Module header */}
+                <div
+                  className="px-5 py-4 flex items-center justify-between border-b"
+                  style={{ borderColor: `${theme.color}20` }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{ background: theme.dimColor, color: theme.color }}
+                    >
+                      {isLocked ? <Lock className="w-5 h-5" /> : theme.icon}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-bold text-sm">{world.name}</span>
+                        {world.free ? (
+                          <Badge className="text-xs py-0 px-1.5" style={{ background: `${theme.color}25`, color: theme.color, border: `1px solid ${theme.color}40` }}>
+                            Free
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-yellow-500/15 text-yellow-300 border-yellow-500/25 text-xs py-0 px-1.5">
+                            <Crown className="w-2.5 h-2.5 mr-1" /> Pro
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-white/50 text-xs mt-0.5">{world.subtitle}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-white/30 text-xs">{completedCount}/{world.chambers.length}</div>
+                    <div className="text-white/20 text-xs">chambers</div>
+                  </div>
+                </div>
+
+                {/* Chamber path */}
+                <div className="px-5 py-5">
+                  <div className="flex items-center gap-0 overflow-x-auto pb-1">
+                    {world.chambers.map((chamber, ci) => {
+                      const prog = getChamberProgress(chamber.id);
+                      const completed = prog?.completed ?? false;
+                      const chamberLocked = isLocked;
+
+                      const node = (
+                        <div key={chamber.id} className="flex items-center flex-shrink-0">
+                          {/* Node */}
+                          <div className="flex flex-col items-center gap-1.5">
+                            <div
+                              className={`w-12 h-12 rounded-full border-2 flex items-center justify-center transition-all ${
+                                completed
+                                  ? 'shadow-lg'
+                                  : chamberLocked
+                                  ? 'opacity-40'
+                                  : 'hover:scale-105'
+                              }`}
+                              style={{
+                                background: completed
+                                  ? theme.color
+                                  : chamberLocked
+                                  ? '#1a1a2e'
+                                  : `${theme.color}15`,
+                                borderColor: completed
+                                  ? theme.color
+                                  : chamberLocked
+                                  ? '#ffffff20'
+                                  : `${theme.color}50`,
+                                boxShadow: completed ? `0 0 16px ${theme.color}60` : undefined,
+                              }}
+                            >
+                              {completed ? (
+                                <CheckCircle className="w-5 h-5 text-white" />
+                              ) : chamberLocked ? (
+                                <Lock className="w-4 h-4 text-white/30" />
+                              ) : (
+                                <span
+                                  className="text-sm font-bold"
+                                  style={{ color: theme.color }}
+                                >
+                                  {ci + 1}
+                                </span>
+                              )}
+                            </div>
+                            <span
+                              className="text-xs text-center leading-tight max-w-[72px] font-medium"
+                              style={{ color: completed ? '#ffffff90' : '#ffffff40' }}
+                            >
+                              {chamber.name}
+                            </span>
+                          </div>
+
+                          {/* Connecting line to next node */}
+                          {ci < world.chambers.length - 1 && (
+                            <div
+                              className="w-8 h-0.5 mx-1 flex-shrink-0 rounded-full"
+                              style={{
+                                background: completed
+                                  ? `linear-gradient(90deg, ${theme.color}, ${theme.color}60)`
+                                  : '#ffffff15',
+                              }}
+                            />
                           )}
-                          {!world.free && (
-                            <Badge className="bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-300 border-yellow-500/30 text-xs">
-                              <Crown className="w-3 h-3 mr-1" /> PRO
-                            </Badge>
-                          )}
-                        </h2>
-                        <p className="text-white/60 text-sm mt-1">{world.description}</p>
+                        </div>
+                      );
+
+                      // Wrap in Link if not locked
+                      return chamberLocked ? (
+                        <div key={chamber.id}>{node}</div>
+                      ) : (
+                        <Link key={chamber.id} href={bossHref} className="flex items-center">
+                          {node}
+                        </Link>
+                      );
+                    })}
+
+                    {/* Arrow to boss */}
+                    <div
+                      className="w-8 h-0.5 mx-1 flex-shrink-0 rounded-full"
+                      style={{ background: allDone && !isLocked ? `${theme.color}80` : '#ffffff10' }}
+                    />
+
+                    {/* Boss node */}
+                    {isLocked || !allDone ? (
+                      <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+                        <div
+                          className="w-14 h-14 rounded-full border-2 border-dashed flex items-center justify-center opacity-40"
+                          style={{ borderColor: '#ef4444', background: '#1a0a0a' }}
+                        >
+                          <Skull className="w-6 h-6 text-red-500/50" />
+                        </div>
+                        <span className="text-xs text-white/25 font-medium max-w-[72px] text-center">
+                          {world.boss.name}
+                        </span>
+                      </div>
+                    ) : (
+                      <Link href={bossHref} className="flex-shrink-0">
+                        <motion.div
+                          className="flex flex-col items-center gap-1.5"
+                          animate={{ scale: [1, 1.05, 1] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        >
+                          <div
+                            className="w-14 h-14 rounded-full border-2 flex items-center justify-center"
+                            style={{
+                              background: '#2d0a0a',
+                              borderColor: '#ef4444',
+                              boxShadow: '0 0 20px #ef444460',
+                            }}
+                          >
+                            <Skull className="w-7 h-7 text-red-400" />
+                          </div>
+                          <span className="text-xs text-red-400 font-bold max-w-[72px] text-center flex items-center gap-0.5">
+                            <Flame className="w-3 h-3" /> {world.boss.name}
+                          </span>
+                        </motion.div>
+                      </Link>
+                    )}
+                  </div>
+
+                  {/* Progress bar */}
+                  {!isLocked && (
+                    <div className="mt-4">
+                      <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full rounded-full"
+                          style={{ background: theme.color }}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(completedCount / world.chambers.length) * 100}%` }}
+                          transition={{ duration: 1, delay: wi * 0.1 + 0.3, ease: 'easeOut' }}
+                        />
                       </div>
                     </div>
+                  )}
 
-                    {/* Chambers */}
-                    <div className="grid md:grid-cols-2 gap-3 mb-4">
-                      {world.chambers.map((chamber) => {
-                        const prog = getChamberProgress(chamber.id);
-                        const chamberLocked = !chamber.free && userTier === 'free';
-                        const inner = (
-                          <div
-                            className={`p-3 rounded-lg border ${
-                              prog?.completed
-                                ? 'bg-green-500/10 border-green-500/30'
-                                : chamberLocked
-                                ? 'bg-white/5 border-white/10 opacity-50 cursor-not-allowed'
-                                : 'bg-white/5 border-white/20 hover:bg-white/10 cursor-pointer'
-                            } transition-all`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                {prog?.completed ? (
-                                  <CheckCircle className="w-5 h-5 text-green-400" />
-                                ) : chamberLocked ? (
-                                  <Lock className="w-5 h-5 text-yellow-500/50" />
-                                ) : (
-                                  <Beaker className="w-5 h-5 text-cyan-400" />
-                                )}
-                                <span className="text-white font-medium text-sm">{chamber.name}</span>
-                              </div>
-                              {prog?.bestScore ? (
-                                <div className="flex items-center gap-1">
-                                  <Star className="w-3 h-3 text-yellow-400" />
-                                  <span className="text-yellow-300 text-xs">{prog.bestScore}</span>
-                                </div>
-                              ) : null}
-                            </div>
-                          </div>
-                        );
-                        const setId = WORLD_TO_SET_ID[world.id]
-                        const bossHref = `/campaign/boss/${world.boss.id}${setId ? `?questionSetId=${setId}` : ''}`
-                        return chamberLocked ? (
-                          <div key={chamber.id}>{inner}</div>
-                        ) : (
-                          <Link key={chamber.id} href={bossHref}>
-                            {inner}
-                          </Link>
-                        );
-                      })}
+                  {/* Quick-start CTA for free module */}
+                  {!isLocked && (
+                    <div className="mt-4">
+                      <Link href={bossHref}>
+                        <button
+                          className="w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.98]"
+                          style={{
+                            background: `${theme.color}20`,
+                            color: theme.color,
+                            border: `1px solid ${theme.color}40`,
+                          }}
+                        >
+                          {allDone ? (
+                            <>
+                              <Skull className="w-4 h-4" /> Challenge the Boss
+                            </>
+                          ) : completedCount > 0 ? (
+                            <>
+                              Continue Module <ChevronRight className="w-4 h-4" />
+                            </>
+                          ) : (
+                            <>
+                              Start Module <ChevronRight className="w-4 h-4" />
+                            </>
+                          )}
+                        </button>
+                      </Link>
                     </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          );
+        })}
 
-                    {/* Boss Card */}
-                    <BossCard
-                      world={world}
-                      progress={progress}
-                      isWorldLocked={isLocked}
-                      userTier={userTier}
-                    />
-                  </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        {/* Upgrade CTA for free users */}
+        {/* Locked modules notice */}
         {userTier === 'free' && (
-          <div className="max-w-4xl mx-auto mt-8">
-            <Card className="bg-gradient-to-r from-purple-500/20 to-cyan-500/20 border-purple-400/30">
-              <CardContent className="p-6 text-center">
-                <Crown className="w-10 h-10 text-yellow-400 mx-auto mb-3" />
-                <h3 className="text-xl font-bold text-white mb-2">Unlock All Modules</h3>
-                <p className="text-white/60 mb-4">
-                  Upgrade to Pro to access Modules 2-8, all boss battles, and premium features.
-                </p>
-                <Button className="bg-gradient-to-r from-purple-500 to-cyan-500 text-white">
-                  Coming Soon
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="rounded-2xl border border-yellow-500/20 p-5 text-center"
+            style={{ background: 'linear-gradient(135deg, #ffffff08, #ffffff04)' }}
+          >
+            <Crown className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
+            <h3 className="text-white font-bold mb-1">5 More Modules Locked</h3>
+            <p className="text-white/40 text-sm">
+              Modules 2–8 and all their boss battles unlock with Pro.
+            </p>
+            <div className="mt-3 text-yellow-500/60 text-xs font-medium">Coming soon</div>
+          </motion.div>
         )}
       </div>
     </div>
