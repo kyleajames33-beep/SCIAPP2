@@ -25,6 +25,7 @@ const PhaserBattleScene = dynamic(
   () => import("../_components/PhaserBattleScene"),
   { ssr: false, loading: () => <div style={{ height: 260 }} /> }
 );
+
 import { resolveBossId, handleBossNotFound } from "@/lib/boss-mapping";
 import bossesData from "@/data/bosses.json";
 
@@ -583,10 +584,10 @@ export default function BossBattlePage() {
         {/* Phaser battle scene — handles all character animation */}
         <div className="absolute inset-0 flex items-center justify-center">
           <PhaserBattleScene
-            ref={phaserRef}
             bossSheetUrl="/sprites/boss_atom_sheet.png"
             width={600}
             height={260}
+            onReady={(handle) => { phaserRef.current = handle; }}
           />
         </div>
       </div>
