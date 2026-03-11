@@ -117,6 +117,15 @@ export default function BossBattlePage() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const shieldTriggeredRef = useRef<number[]>([]);
   const phaserRef = useRef<PhaserBattleSceneHandle>(null);
+  const particles = useRef(
+    Array.from({ length: 12 }, (_, i) => ({
+      x: 8 + (i * 7.5) % 85,
+      y: 10 + (i * 13) % 75,
+      size: 4 + (i % 3) * 3,
+      dur: 3 + (i % 4),
+      delay: (i % 5) * 0.6,
+    }))
+  ).current;
 
   const resolvedBossId = resolveBossId(bossId);
 
@@ -405,17 +414,6 @@ export default function BossBattlePage() {
   const currentQuestion = questions[currentQuestionIndex];
   const hpPercent = (boss.currentHp / boss.maxHp) * 100;
   const themeColor = bossJsonData.themeColor;
-
-  // Particle positions (stable, generated once)
-  const particles = useRef(
-    Array.from({ length: 12 }, (_, i) => ({
-      x: 8 + (i * 7.5) % 85,
-      y: 10 + (i * 13) % 75,
-      size: 4 + (i % 3) * 3,
-      dur: 3 + (i % 4),
-      delay: (i % 5) * 0.6,
-    }))
-  ).current;
 
   return (
     <div
