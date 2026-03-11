@@ -18,6 +18,13 @@ import {
 import { toast } from "sonner";
 import { Question } from "@/lib/game-types";
 import { RankUpCelebration } from "../_components/RankUpCelebration";
+import dynamic from "next/dynamic";
+import type { PhaserBattleSceneHandle } from "../_components/PhaserBattleScene";
+
+const PhaserBattleScene = dynamic(
+  () => import("../_components/PhaserBattleScene"),
+  { ssr: false, loading: () => <div style={{ height: 260 }} /> }
+);
 import { resolveBossId, handleBossNotFound } from "@/lib/boss-mapping";
 import bossesData from "@/data/bosses.json";
 
@@ -101,7 +108,6 @@ export default function BossBattlePage() {
   const [eliminatedOptions, setEliminatedOptions] = useState<number[]>([]);
   const [playerShield, setPlayerShield] = useState(false);
   // Animation state
-  const [playerAttacking, setPlayerAttacking] = useState(false);
   const [bossFlash, setBossFlash] = useState(false);
   const [screenFlash, setScreenFlash] = useState<"correct" | "wrong" | null>(null);
   const [animKey, setAnimKey] = useState(0); // forces re-trigger of framer animations
@@ -109,6 +115,7 @@ export default function BossBattlePage() {
   const popupIdRef = useRef(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const shieldTriggeredRef = useRef<number[]>([]);
+  const phaserRef = useRef<PhaserBattleSceneHandle>(null);
 
   const resolvedBossId = resolveBossId(bossId);
 
@@ -230,10 +237,12 @@ export default function BossBattlePage() {
     setAnimKey((k) => k + 1);
     if (isCorrect) {
       setPlayerSprite("attack");
-      setPlayerAttacking(true);
       setScreenFlash("correct");
       setTimeout(() => setScreenFlash(null), 300);
+      // Phaser: player lunges + boss gets hit with damage number
+      phaserRef.current?.triggerPlayerAttack();
       setTimeout(() => {
+        phaserRef.current?.triggerBossHurt(damage);
         setBossShaking(true);
         setBossFlash(true);
         const id = ++popupIdRef.current;
@@ -244,7 +253,6 @@ export default function BossBattlePage() {
         setBossShaking(false);
         setBossFlash(false);
         setPlayerSprite("idle");
-        setPlayerAttacking(false);
       }, 650);
       playSound("correct");
       setTimeout(() => playSound("boss_hit"), 200);
@@ -253,6 +261,8 @@ export default function BossBattlePage() {
       setScreenFlash("wrong");
       setTimeout(() => setScreenFlash(null), 350);
       setTimeout(() => setPlayerSprite("idle"), 650);
+      // Phaser: player hurt animation
+      phaserRef.current?.triggerPlayerHurt();
       playSound("wrong");
     }
   };
@@ -394,12 +404,6 @@ export default function BossBattlePage() {
   const currentQuestion = questions[currentQuestionIndex];
   const hpPercent = (boss.currentHp / boss.maxHp) * 100;
   const themeColor = bossJsonData.themeColor;
-
-  const playerSpriteMap = {
-    idle: "/sprites/player_strong_idle.png",
-    attack: "/sprites/player_strong_attack.png",
-    hurt: "/sprites/player_strong_hurt.png",
-  };
 
   // Particle positions (stable, generated once)
   const particles = useRef(
@@ -576,94 +580,14 @@ export default function BossBattlePage() {
           )}
         </div>
 
-        {/* Sprites */}
-        <div className="absolute inset-0 flex items-end justify-between px-8 pb-10">
-
-          {/* Player — bottom left */}
-          <div className="relative flex flex-col items-center">
-            {/* Shadow */}
-            <div className="absolute bottom-0 w-20 h-3 rounded-full"
-              style={{ background: "radial-gradient(ellipse, rgba(0,0,0,0.5) 0%, transparent 70%)", filter: "blur(3px)" }} />
-            <motion.div
-              key={`player-${animKey}`}
-              animate={
-                playerAttacking
-                  ? { x: [0, 65, 55, 0], y: [0, -5, -5, 0] }
-                  : playerSprite === "hurt"
-                  ? { x: [-8, 8, -6, 5, 0], y: [0, 3, 0] }
-                  : { y: [0, -10, 0] }
-              }
-              transition={
-                playerAttacking
-                  ? { duration: 0.45, ease: "easeInOut" }
-                  : playerSprite === "hurt"
-                  ? { duration: 0.4, ease: "easeOut" }
-                  : { duration: 2.2, repeat: Infinity, ease: "easeInOut" }
-              }
-            >
-              <img
-                src={playerSpriteMap[playerSprite]}
-                alt="Player"
-                className="w-32 h-32 sm:w-40 sm:h-40 object-contain"
-                style={{
-                  imageRendering: "pixelated",
-                  filter: playerSprite === "hurt" ? "brightness(3) saturate(0.2)" : "drop-shadow(0 4px 16px rgba(0,0,0,0.6))",
-                  transition: "filter 0.15s",
-                }}
-              />
-            </motion.div>
-          </div>
-
-          {/* Boss — bottom right, flipped */}
-          <div className="relative flex flex-col items-center">
-            {/* Shadow */}
-            <div className="absolute bottom-0 w-24 h-4 rounded-full"
-              style={{ background: "radial-gradient(ellipse, rgba(0,0,0,0.5) 0%, transparent 70%)", filter: "blur(4px)" }} />
-
-            {/* Damage popups */}
-            {damagePopups.map((popup) => (
-              <motion.div
-                key={popup.id}
-                className="absolute pointer-events-none font-black text-yellow-300 text-3xl z-30"
-                style={{ top: "-20px", left: "50%", x: "-50%", textShadow: "0 2px 12px rgba(0,0,0,0.9)" }}
-                initial={{ opacity: 1, y: 0, scale: 1 }}
-                animate={{ opacity: 0, y: -70, scale: 1.5 }}
-                transition={{ duration: 1.1, ease: "easeOut" }}
-              >
-                -{popup.value}
-              </motion.div>
-            ))}
-
-            <motion.div
-              key={`boss-${animKey}`}
-              animate={
-                bossShaking
-                  ? { x: [0, -18, 16, -12, 8, -4, 0], y: [0, -5, 0] }
-                  : { y: [0, -15, 0] }
-              }
-              transition={
-                bossShaking
-                  ? { duration: 0.5, ease: "easeOut" }
-                  : { duration: 2.6, repeat: Infinity, ease: "easeInOut" }
-              }
-            >
-              <img
-                src={bossJsonData.sprite}
-                alt={boss.name}
-                className="w-40 h-40 sm:w-48 sm:h-48 object-contain"
-                style={{
-                  transform: "scaleX(-1)",
-                  imageRendering: "pixelated",
-                  filter: bossFlash
-                    ? "brightness(8) saturate(0)"
-                    : boss.enraged
-                    ? `drop-shadow(0 0 12px #ef4444) brightness(1.1)`
-                    : `drop-shadow(0 4px 20px ${themeColor}60)`,
-                  transition: "filter 0.12s",
-                }}
-              />
-            </motion.div>
-          </div>
+        {/* Phaser battle scene — handles all character animation */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <PhaserBattleScene
+            ref={phaserRef}
+            bossSheetUrl="/sprites/boss_atom_sheet.png"
+            width={600}
+            height={260}
+          />
         </div>
       </div>
 
