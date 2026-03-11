@@ -17,8 +17,9 @@ interface Props {
 
 // Frame layout — 4 columns × 3 rows, 1200×896 sheet
 // Row 0: idle (frames 0–3) · Row 1: attack (4–7) · Row 2: hurt (8–11)
+// FRAME_H = 298 so that floor(896/298)=3 rows; 299 only gives floor(896/299)=2 rows
 const FRAME_W = 300;
-const FRAME_H = 299;
+const FRAME_H = 298;
 
 export default function PhaserBattleScene({
   bossSheetUrl,
@@ -154,5 +155,15 @@ export default function PhaserBattleScene({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return <div ref={containerRef} style={{ width, height }} />;
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        width,
+        height,
+        // Checkerboard suppression: multiply blend makes grey/white invisible on dark bg
+        mixBlendMode: "screen",
+      }}
+    />
+  );
 }
