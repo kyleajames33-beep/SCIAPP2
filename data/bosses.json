@@ -6,7 +6,13 @@
       "elementalType": "Acid-Base",
       "description": "Master of pH and proton transfer reactions",
       "baseHp": 1000,
-      "sprite": "/sprites/boss_chemistry.png",
+      "chargeTime": 20,
+      "images": {
+        "idle": "/images/characters/boss-acid-baron-idle.png",
+        "attack": "/images/characters/boss-acid-baron-attack.png",
+        "hurt": "/images/characters/boss-acid-baron-hurt.png"
+      },
+      "arenaBackground": "/backgrounds/arena-acid-baron.png",
       "themeColor": "#10b981",
       "particleColors": ["#10b981", "#34d399", "#6ee7b7", "#a7f3d0"],
       "specialMoves": [
@@ -54,7 +60,12 @@
       "elementalType": "Redox",
       "description": "Harvester of electrons and oxidation states",
       "baseHp": 1100,
-      "sprite": "/sprites/boss_chemistry.png",
+      "chargeTime": 17,
+      "images": {
+        "idle": "/images/characters/boss-acid-baron-idle.png",
+        "attack": "/images/characters/boss-acid-baron-attack.png",
+        "hurt": "/images/characters/boss-acid-baron-hurt.png"
+      },
       "themeColor": "#ef4444",
       "particleColors": ["#ef4444", "#f87171", "#fca5a5", "#fee2e2"],
       "specialMoves": [
@@ -102,7 +113,12 @@
       "elementalType": "Organic",
       "description": "Master of carbon chains and functional groups",
       "baseHp": 1200,
-      "sprite": "/sprites/boss_biology.png",
+      "chargeTime": 14,
+      "images": {
+        "idle": "/images/characters/boss-acid-baron-idle.png",
+        "attack": "/images/characters/boss-acid-baron-attack.png",
+        "hurt": "/images/characters/boss-acid-baron-hurt.png"
+      },
       "themeColor": "#8b5cf6",
       "particleColors": ["#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe"],
       "specialMoves": [
@@ -150,7 +166,12 @@
       "elementalType": "Thermodynamics",
       "description": "Controller of energy and entropy",
       "baseHp": 1000,
-      "sprite": "/sprites/boss_physics.png",
+      "chargeTime": 12,
+      "images": {
+        "idle": "/images/characters/boss-acid-baron-idle.png",
+        "attack": "/images/characters/boss-acid-baron-attack.png",
+        "hurt": "/images/characters/boss-acid-baron-hurt.png"
+      },
       "themeColor": "#f97316",
       "particleColors": ["#f97316", "#fb923c", "#fdba74", "#fed7aa"],
       "specialMoves": [
@@ -198,7 +219,12 @@
       "elementalType": "Equilibrium",
       "description": "Master of Le Chatelier's principle",
       "baseHp": 1050,
-      "sprite": "/sprites/boss_maths.png",
+      "chargeTime": 10,
+      "images": {
+        "idle": "/images/characters/boss-acid-baron-idle.png",
+        "attack": "/images/characters/boss-acid-baron-attack.png",
+        "hurt": "/images/characters/boss-acid-baron-hurt.png"
+      },
       "themeColor": "#06b6d4",
       "particleColors": ["#06b6d4", "#22d3ee", "#67e8f9", "#a5f3fc"],
       "specialMoves": [
@@ -246,7 +272,12 @@
       "elementalType": "Kinetics",
       "description": "Ruler of reaction rates and activation energy",
       "baseHp": 950,
-      "sprite": "/sprites/boss_physics.png",
+      "chargeTime": 9,
+      "images": {
+        "idle": "/images/characters/boss-acid-baron-idle.png",
+        "attack": "/images/characters/boss-acid-baron-attack.png",
+        "hurt": "/images/characters/boss-acid-baron-hurt.png"
+      },
       "themeColor": "#eab308",
       "particleColors": ["#eab308", "#facc15", "#fde047", "#fef08a"],
       "specialMoves": [
@@ -294,7 +325,12 @@
       "elementalType": "Atomic Structure",
       "description": "Master of electron configurations and orbitals",
       "baseHp": 1150,
-      "sprite": "/sprites/boss_maths.png",
+      "chargeTime": 8,
+      "images": {
+        "idle": "/images/characters/boss-acid-baron-idle.png",
+        "attack": "/images/characters/boss-acid-baron-attack.png",
+        "hurt": "/images/characters/boss-acid-baron-hurt.png"
+      },
       "themeColor": "#ec4899",
       "particleColors": ["#ec4899", "#f472b6", "#f9a8d4", "#fbcfe8"],
       "specialMoves": [
@@ -342,7 +378,12 @@
       "elementalType": "Solutions",
       "description": "Lord of solubility and concentration",
       "baseHp": 1000,
-      "sprite": "/sprites/boss_biology.png",
+      "chargeTime": 15,
+      "images": {
+        "idle": "/images/characters/boss-acid-baron-idle.png",
+        "attack": "/images/characters/boss-acid-baron-attack.png",
+        "hurt": "/images/characters/boss-acid-baron-hurt.png"
+      },
       "themeColor": "#3b82f6",
       "particleColors": ["#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe"],
       "specialMoves": [

@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Swords,
-  Shield,
   Trophy,
   ArrowLeft,
   Flame,
@@ -20,6 +19,10 @@ import { Question } from "@/lib/game-types";
 import { RankUpCelebration } from "../_components/RankUpCelebration";
 import dynamic from "next/dynamic";
 import type { PhaserBattleSceneHandle } from "../_components/PhaserBattleScene";
+import BattleCharacter from "../_components/BattleCharacter";
+import CharacterSelectModal from "../_components/CharacterSelectModal";
+import { useSupabaseAuth } from "@/app/auth/supabase-provider";
+import { authFetch } from "@/lib/auth-fetch";
 
 const PhaserBattleScene = dynamic(
   () => import("../_components/PhaserBattleScene"),
@@ -34,7 +37,7 @@ const BOSS_LOOKUP: Record<string, typeof bossesData.bosses[0]> = Object.fromEntr
   bossesData.bosses.map((b) => [b.id, b])
 );
 
-type BossPhase = "intro" | "combat" | "shield" | "victory" | "defeat";
+type BossPhase = "intro" | "combat" | "victory" | "defeat";
 type PlayerSprite = "idle" | "attack" | "hurt";
 
 interface BossState {
@@ -44,8 +47,6 @@ interface BossState {
   currentHp: number;
   phase: BossPhase;
   enraged: boolean;
-  shieldActive: boolean;
-  shieldHp: number;
 }
 
 interface CombatStats {
@@ -66,17 +67,16 @@ interface DamagePopup {
   value: number;
 }
 
-const SHIELD_PHASES = [0.75, 0.5, 0.25];
-
 function playSound(name: "correct" | "wrong" | "boss_hit" | "level_up" | "coin") {
   const audio = new Audio(`/sounds/${name}.mp3`);
   audio.volume = 0.4;
   audio.play().catch(() => {});
 }
 
-export default function BossBattlePage() {
+export default function BossBattleClient() {
   const params = useParams();
   const router = useRouter();
+  const { session } = useSupabaseAuth();
   const bossId = (params?.bossId as string) ?? "";
   const questionSetId =
     typeof window !== "undefined"
@@ -89,7 +89,6 @@ export default function BossBattlePage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(30);
   const [stats, setStats] = useState<CombatStats>({
     damageDealt: 0,
     questionsAnswered: 0,
@@ -105,18 +104,41 @@ export default function BossBattlePage() {
   const [bossShaking, setBossShaking] = useState(false);
   const [damagePopups, setDamagePopups] = useState<DamagePopup[]>([]);
   // Power-ups: each starts with 1 use (free starter kit)
-  const [powerUps, setPowerUps] = useState({ extraTime: 1, hint: 1, shield: 1 });
+  const [powerUps, setPowerUps] = useState({ hint: 1 });
   const [eliminatedOptions, setEliminatedOptions] = useState<number[]>([]);
-  const [playerShield, setPlayerShield] = useState(false);
   // Animation state
   const [bossFlash, setBossFlash] = useState(false);
   const [screenFlash, setScreenFlash] = useState<"correct" | "wrong" | null>(null);
-  const [animKey, setAnimKey] = useState(0); // forces re-trigger of framer animations
+  const [animKey, setAnimKey] = useState(0); // forces re-trigger of framer animations — TODO Phase 2: wire to arena key prop
+
+  // ── Energy system state (BATTLE_SPEC.md §6) ──────────────────────────────
+  const [playerEnergy, setPlayerEnergy]     = useState(0);
+  const [playerHp, setPlayerHp]             = useState(100);
+  const [bossCharge, setBossCharge]         = useState(0);
+  const [wrongStreak, setWrongStreak]       = useState(0);
+  const [currentStreak, setCurrentStreak]   = useState(0);
+  const [shieldActive, setShieldActive]     = useState(false);
+  const [shieldCooldown, setShieldCooldown] = useState(false);
+
+  // Character animation states for Framer Motion
+  const [heroState, setHeroState]   = useState<"idle" | "attack" | "hurt">("idle");
+  const [bossState, setBossState]   = useState<"idle" | "attack" | "hurt">("idle");
+
+  // Character selection state
+  const [characterChoice, setCharacterChoice] = useState<"electron" | "proton" | "neutron" | null>(null);
 
   const popupIdRef = useRef(0);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const shieldTriggeredRef = useRef<number[]>([]);
   const phaserRef = useRef<PhaserBattleSceneHandle>(null);
+
+  // ── Timer refs ────────────────────────────────────────────────────────────
+  const bossChargeIntervalRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const shieldExpiryTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bossAttackingRef       = useRef(false);
+  const battleActiveRef        = useRef(false);
+
+  // Ref mirrors — keep in sync with state so timers can read current values (stale closure prevention)
+  const playerEnergyRef  = useRef(0);
+  const shieldActiveRef  = useRef(false);
   const particles = useRef(
     Array.from({ length: 12 }, (_, i) => ({
       x: 8 + (i * 7.5) % 85,
@@ -128,6 +150,16 @@ export default function BossBattlePage() {
   ).current;
 
   const resolvedBossId = resolveBossId(bossId);
+
+  // Derive character images based on user choice  
+  const characterForm = "baby"; // Phase 2: always baby, Phase 7 adds form progression
+  const characterBase = characterChoice ?? "electron"; // fallback to electron
+  
+  const heroImages = {
+    idle:   `/images/characters/${characterBase}-${characterForm}-idle.png`,
+    attack: `/images/characters/${characterBase}-${characterForm}-attack.png`,
+    hurt:   `/images/characters/${characterBase}-${characterForm}-hurt.png`,
+  };
 
   useEffect(() => {
     if (!resolvedBossId) {
@@ -151,12 +183,11 @@ export default function BossBattlePage() {
       currentHp: data.baseHp,
       phase: "intro",
       enraged: false,
-      shieldActive: false,
-      shieldHp: 0,
     });
 
-    const qs = questionSetId ? `&questionSetId=${questionSetId}` : "";
-    fetch(`/api/questions?count=15${qs}`)
+    // Boss battles always fetch from the full question pool — no questionSetId filter
+    // (DB has questionSetId=null on all questions; proper seeding is Phase 3)
+    fetch(`/api/questions?count=15`)
       .then((res) => res.json())
       .then((d) => {
         setQuestions(d.questions || []);
@@ -168,51 +199,89 @@ export default function BossBattlePage() {
       });
   }, [resolvedBossId, bossId, router]);
 
-  // Timer
+  // Boss charge timer — runs only during combat phase
   useEffect(() => {
-    if (boss?.phase !== "combat" || isAnswered) return;
+    if (!boss || boss.phase !== "combat" || !bossJsonData) return;
 
-    timerRef.current = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          handleTimeout();
-          return 30;
+    battleActiveRef.current = true;
+
+    const chargeMs  = ((bossJsonData as { chargeTime?: number }).chargeTime ?? 15) * 1000;
+    const tickMs    = 100;
+    const increment = (100 / chargeMs) * tickMs;
+
+    bossChargeIntervalRef.current = setInterval(() => {
+      if (!battleActiveRef.current) return;
+      setBossCharge(prev => {
+        const next = prev + increment;
+        if (next >= 100) {
+          handleBossAttack();
+          return 0;
         }
-        return prev - 1;
+        return next;
       });
-    }, 1000);
+    }, tickMs);
 
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      battleActiveRef.current = false;
+      if (bossChargeIntervalRef.current) clearInterval(bossChargeIntervalRef.current);
     };
-  }, [boss?.phase, isAnswered, currentQuestionIndex]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boss?.phase, bossJsonData]);
 
-  const handleTimeout = useCallback(() => {
-    if (isAnswered) return;
-    setIsAnswered(true);
-    setStats((prev) => ({ ...prev, questionsAnswered: prev.questionsAnswered + 1, streak: 0 }));
-    if (boss) {
-      const healAmount = Math.floor(boss.maxHp * 0.05);
-      setBoss((prev) =>
-        prev ? { ...prev, currentHp: Math.min(prev.maxHp, prev.currentHp + healAmount) } : null
-      );
-      toast.error(`Time's up! ${boss.name} healed ${healAmount} HP!`);
-    }
-    setTimeout(() => nextQuestion(), 2000);
-  }, [isAnswered, boss]);
+  // Auto-reset hero animation state to idle after action completes
+  useEffect(() => {
+    if (heroState === "idle") return;
+    const t = setTimeout(() => setHeroState("idle"), heroState === "attack" ? 520 : 420);
+    return () => clearTimeout(t);
+  }, [heroState]);
 
-  const calculateDamage = (isCorrect: boolean, streak: number): number => {
-    if (!isCorrect) return 0;
-    return 50 + streak * 10;
+  // Auto-reset boss animation state to idle after action completes
+  useEffect(() => {
+    if (bossState === "idle") return;
+    const t = setTimeout(() => setBossState("idle"), 480);
+    return () => clearTimeout(t);
+  }, [bossState]);
+
+  // Preload character images to prevent blank-frame flash on state swap
+  useEffect(() => {
+    if (!bossJsonData) return;
+    const srcs = [
+      "/images/characters/electron-baby-idle.png",
+      "/images/characters/electron-baby-attack.png", 
+      "/images/characters/electron-baby-hurt.png",
+      "/images/characters/proton-baby-idle.png",
+      "/images/characters/proton-baby-attack.png",
+      "/images/characters/proton-baby-hurt.png",
+      "/images/characters/neutron-baby-idle.png",
+      "/images/characters/neutron-baby-attack.png",
+      "/images/characters/neutron-baby-hurt.png",
+      bossJsonData.images?.idle,
+      bossJsonData.images?.attack,
+      bossJsonData.images?.hurt,
+    ].filter(Boolean) as string[];
+
+    srcs.forEach(src => {
+      const img = new window.Image();
+      img.src = src;
+    });
+  }, [bossJsonData]);
+
+  const updatePlayerEnergy = (value: number) => {
+    const clamped = Math.max(0, Math.min(100, value));
+    playerEnergyRef.current = clamped;
+    setPlayerEnergy(clamped);
   };
 
-  const useExtraTime = () => {
-    if (powerUps.extraTime <= 0 || isAnswered || boss?.phase !== "combat") return;
-    setPowerUps((p) => ({ ...p, extraTime: p.extraTime - 1 }));
-    setTimeRemaining((t) => t + 10);
-    toast.success("+10 seconds!");
-    playSound("powerup" as "correct");
+  const updateShieldActive = (value: boolean) => {
+    shieldActiveRef.current = value;
+    setShieldActive(value);
   };
+
+  // PHASE 1: replaced by energy system — direct damage removed
+  // const calculateDamage = (isCorrect: boolean, streak: number): number => {
+  //   if (!isCorrect) return 0;
+  //   return 50 + streak * 10;
+  // };
 
   const useHint = () => {
     const q = questions[currentQuestionIndex];
@@ -225,39 +294,22 @@ export default function BossBattlePage() {
     toast.success("Two wrong answers eliminated!");
   };
 
-  const useShield = () => {
-    if (powerUps.shield <= 0 || boss?.phase !== "combat") return;
-    setPowerUps((p) => ({ ...p, shield: p.shield - 1 }));
-    setPlayerShield(true);
-    toast.success("Shield active — next wrong answer blocked!");
-  };
-
-  const checkShieldPhase = (currentHp: number, maxHp: number): boolean => {
-    const hpPercent = currentHp / maxHp;
-    for (const threshold of SHIELD_PHASES) {
-      if (hpPercent <= threshold && !shieldTriggeredRef.current.includes(threshold)) {
-        shieldTriggeredRef.current.push(threshold);
-        return true;
-      }
-    }
-    return false;
-  };
-
   const triggerAttackAnimation = (isCorrect: boolean, damage: number) => {
     setAnimKey((k) => k + 1);
     if (isCorrect) {
       setPlayerSprite("attack");
       setScreenFlash("correct");
       setTimeout(() => setScreenFlash(null), 300);
-      // Phaser: player lunges + boss gets hit with damage number
-      phaserRef.current?.triggerPlayerAttack();
+      // Player attack animation now handled by Framer Motion in Sub-phase 2.3
       setTimeout(() => {
-        phaserRef.current?.triggerBossHurt(damage);
-        setBossShaking(true);
-        setBossFlash(true);
-        const id = ++popupIdRef.current;
-        setDamagePopups((prev) => [...prev, { id, value: damage }]);
-        setTimeout(() => setDamagePopups((prev) => prev.filter((p) => p.id !== id)), 1100);
+        if (damage > 0) {
+          phaserRef.current?.triggerBossHurt(damage);
+          setBossShaking(true);
+          setBossFlash(true);
+          const id = ++popupIdRef.current;
+          setDamagePopups((prev) => [...prev, { id, value: damage }]);
+          setTimeout(() => setDamagePopups((prev) => prev.filter((p) => p.id !== id)), 1100);
+        }
       }, 180);
       setTimeout(() => {
         setBossShaking(false);
@@ -265,24 +317,22 @@ export default function BossBattlePage() {
         setPlayerSprite("idle");
       }, 650);
       playSound("correct");
-      setTimeout(() => playSound("boss_hit"), 200);
+      if (damage > 0) setTimeout(() => playSound("boss_hit"), 200);
     } else {
       setPlayerSprite("hurt");
       setScreenFlash("wrong");
       setTimeout(() => setScreenFlash(null), 350);
       setTimeout(() => setPlayerSprite("idle"), 650);
-      // Phaser: player hurt animation
-      phaserRef.current?.triggerPlayerHurt();
+      // Player hurt animation now handled by Framer Motion in Sub-phase 2.3
       playSound("wrong");
     }
   };
 
-  const handleAnswer = async (answer: string) => {
+  const handleAnswer = (answer: string) => {
     if (isAnswered || !boss || boss.phase !== "combat") return;
 
     setSelectedAnswer(answer);
     setIsAnswered(true);
-    if (timerRef.current) clearInterval(timerRef.current);
 
     const currentQuestion = questions[currentQuestionIndex];
     const options = [
@@ -293,70 +343,47 @@ export default function BossBattlePage() {
     ];
     const answerIndex = options.indexOf(answer);
     const isCorrect = answerIndex === currentQuestion.correctAnswer;
-    const newStreak = isCorrect ? stats.streak + 1 : 0;
-    const damage = calculateDamage(isCorrect, newStreak);
 
-    triggerAttackAnimation(isCorrect, damage);
-
-    setStats((prev) => ({
-      damageDealt: prev.damageDealt + damage,
-      questionsAnswered: prev.questionsAnswered + 1,
-      correctAnswers: prev.correctAnswers + (isCorrect ? 1 : 0),
-      streak: newStreak,
-      maxStreak: Math.max(prev.maxStreak, newStreak),
-    }));
+    triggerAttackAnimation(isCorrect, 0);
 
     if (isCorrect) {
-      const newHp = Math.max(0, boss.currentHp - damage);
-      if (checkShieldPhase(newHp, boss.maxHp)) {
-        setBoss((prev) =>
-          prev
-            ? {
-                ...prev,
-                currentHp: newHp,
-                shieldActive: true,
-                shieldHp: Math.floor(prev.maxHp * 0.15),
-                phase: "shield",
-              }
-            : null
-        );
-      } else {
-        setBoss((prev) => (prev ? { ...prev, currentHp: newHp } : null));
-      }
+      // Energy gain — streak scaled (per BATTLE_SPEC.md §1)
+      const ENERGY_BY_STREAK: Record<number, number> = { 1: 15, 2: 22, 3: 30, 4: 38 };
+      const newCurrentStreak = currentStreak + 1;
+      const energyGain = newCurrentStreak >= 5 ? 45 : (ENERGY_BY_STREAK[newCurrentStreak] ?? 15);
 
-      if (newHp <= 0) {
-        setBoss((prev) => (prev ? { ...prev, phase: "victory", currentHp: 0 } : null));
-        playSound("level_up");
-        await submitBossAttempt(true);
-        return;
-      }
+      setCurrentStreak(newCurrentStreak);
+      setWrongStreak(0);
+      updatePlayerEnergy(playerEnergyRef.current + energyGain);
+
+      setStats((prev) => ({
+        ...prev,
+        streak: newCurrentStreak,
+        maxStreak: Math.max(prev.maxStreak, newCurrentStreak),
+        questionsAnswered: prev.questionsAnswered + 1,
+        correctAnswers: prev.correctAnswers + 1,
+      }));
     } else {
-      if (playerShield) {
-        // Shield absorbs the wrong answer — no streak break
-        setPlayerShield(false);
-        toast.info("Shield absorbed the wrong answer!");
-      } else {
-        if (!boss.enraged && stats.questionsAnswered > 5) {
-          setBoss((prev) => (prev ? { ...prev, enraged: true } : null));
-        }
+      // Energy drain (per BATTLE_SPEC.md §1)
+      const newWrongStreak = wrongStreak + 1;
+      setWrongStreak(newWrongStreak);
+      setCurrentStreak(0);
+      updatePlayerEnergy(playerEnergyRef.current - 25);
+
+      setStats((prev) => ({
+        ...prev,
+        streak: 0,
+        questionsAnswered: prev.questionsAnswered + 1,
+      }));
+
+      // 3rd consecutive wrong: boss fires immediately (per BATTLE_SPEC.md §1)
+      if (newWrongStreak >= 3) {
+        setWrongStreak(0);
+        handleBossAttack();
       }
     }
 
     setTimeout(() => nextQuestion(), 1500);
-  };
-
-  const handleShieldBreak = () => {
-    if (!boss || !boss.shieldActive) return;
-    const shieldDamage = 30;
-    const newShieldHp = boss.shieldHp - shieldDamage;
-    if (newShieldHp <= 0) {
-      setBoss((prev) =>
-        prev ? { ...prev, shieldActive: false, shieldHp: 0, phase: "combat" } : null
-      );
-      toast.success("Shield broken!");
-    } else {
-      setBoss((prev) => (prev ? { ...prev, shieldHp: newShieldHp } : null));
-    }
   };
 
   const nextQuestion = () => {
@@ -368,23 +395,20 @@ export default function BossBattlePage() {
     setCurrentQuestionIndex((prev) => prev + 1);
     setSelectedAnswer(null);
     setIsAnswered(false);
-    setTimeRemaining(30);
     setEliminatedOptions([]);
   };
 
   const submitBossAttempt = async (victory: boolean) => {
     try {
       const apiBossId = resolvedBossId || bossId;
-      const response = await fetch("/api/campaign/boss/attempt", {
+      const response = await authFetch("/api/campaign/boss/attempt", session, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bossId: apiBossId,
           damageDealt: stats.damageDealt,
           questionsAnswered: stats.questionsAnswered,
           correctAnswers: stats.correctAnswers,
           streak: stats.maxStreak,
-          timeRemaining,
           victory,
         }),
       });
@@ -397,6 +421,100 @@ export default function BossBattlePage() {
     } catch (error) {
       console.error("Failed to submit boss attempt:", error);
     }
+  };
+
+  const handleBossAttack = () => {
+    if (!boss || !battleActiveRef.current) return;
+    if (bossAttackingRef.current) return;
+
+    bossAttackingRef.current = true;
+    setTimeout(() => { bossAttackingRef.current = false; }, 800);
+
+    // Shield absorbs the attack
+    if (shieldActiveRef.current) {
+      updateShieldActive(false);
+      if (shieldExpiryTimerRef.current) clearTimeout(shieldExpiryTimerRef.current);
+      setHeroState("hurt");
+      return;
+    }
+
+    // Damage = 8% of boss maxHp (per BATTLE_SPEC.md §3)
+    const damage = Math.floor(boss.maxHp * 0.08);
+    setHeroState("hurt");
+
+    setPlayerHp(prev => {
+      const next = Math.max(0, prev - damage);
+      if (next <= 0) {
+        setTimeout(() => handleBattleLoss(), 800);
+      }
+      return next;
+    });
+  };
+
+  const handleBattleLoss = () => {
+    battleActiveRef.current = false;
+    if (bossChargeIntervalRef.current) clearInterval(bossChargeIntervalRef.current);
+    if (shieldExpiryTimerRef.current) clearTimeout(shieldExpiryTimerRef.current);
+    setBoss(prev => prev ? { ...prev, phase: "defeat" } : null);
+    submitBossAttempt(false);
+  };
+
+  const handleBattleWin = () => {
+    battleActiveRef.current = false;
+    if (bossChargeIntervalRef.current) clearInterval(bossChargeIntervalRef.current);
+    if (shieldExpiryTimerRef.current) clearTimeout(shieldExpiryTimerRef.current);
+    setBoss(prev => prev ? { ...prev, phase: "victory", currentHp: 0 } : null);
+    playSound("level_up");
+    submitBossAttempt(true);
+  };
+
+  // Per BATTLE_SPEC.md §2 — damage scales with energy at time of hit
+  const calcHitDamage = (energy: number): number => {
+    if (energy >= 100) return Math.floor(energy * 2.5);
+    if (energy >= 70)  return Math.floor(energy * 2.0);
+    if (energy >= 40)  return Math.floor(energy * 1.5);
+    return Math.floor(energy * 1.0);
+  };
+
+  const handleHit = () => {
+    if (playerEnergyRef.current < 1 || !battleActiveRef.current) return;
+    if (boss?.phase !== "combat") return;
+
+    const damage = calcHitDamage(playerEnergyRef.current);
+    updatePlayerEnergy(0);
+
+    setHeroState("attack");
+    setTimeout(() => {
+      phaserRef.current?.triggerBossHurt(damage);
+      setBossState("hurt"); // 300ms after hero attack starts
+    }, 300);
+
+    setStats((prev) => ({ ...prev, damageDealt: prev.damageDealt + damage }));
+
+    setBoss((prev) => {
+      if (!prev) return null;
+      const newHp = Math.max(0, prev.currentHp - damage);
+      if (newHp <= 0) {
+        setTimeout(() => handleBattleWin(), 1200);
+      }
+      return { ...prev, currentHp: newHp };
+    });
+  };
+
+  const handleBlock = () => {
+    if (playerEnergyRef.current < 40) return;
+    if (shieldCooldown || shieldActiveRef.current) return;
+    if (boss?.phase !== "combat") return;
+
+    updatePlayerEnergy(playerEnergyRef.current - 40);
+    updateShieldActive(true);
+
+    // Shield expires after 8s if boss doesn't attack (per BATTLE_SPEC.md §4)
+    shieldExpiryTimerRef.current = setTimeout(() => {
+      updateShieldActive(false);
+      setShieldCooldown(true);
+      setTimeout(() => setShieldCooldown(false), 5000); // 5s cooldown
+    }, 8000);
   };
 
   const startBattle = () => {
@@ -534,14 +652,17 @@ export default function BossBattlePage() {
             />
           </div>
           <div className="text-xs text-white/35 mt-0.5">{boss.currentHp} / {boss.maxHp} HP</div>
-          {boss.shieldActive && (
-            <div className="mt-1">
-              <div className="h-2 bg-black/60 rounded-full overflow-hidden border border-blue-400/25">
-                <div className="h-full bg-blue-400 rounded-full transition-all duration-300"
-                  style={{ width: `${(boss.shieldHp / (boss.maxHp * 0.15)) * 100}%` }} />
+          {/* Boss charge bar — only show during combat */}
+          {boss.phase === "combat" && (
+            <div className="w-full mt-1.5">
+              <div className="text-xs text-orange-400 font-mono mb-0.5 tracking-wide">
+                CHARGING ▶
               </div>
-              <div className="text-xs text-blue-400 mt-0.5 flex items-center gap-1">
-                <Shield className="w-3 h-3" /> Shield: {boss.shieldHp}
+              <div className="h-2 bg-black/60 rounded-full overflow-hidden border border-orange-900/40">
+                <div
+                  className="h-full bg-orange-500 rounded-full transition-none"
+                  style={{ width: `${bossCharge}%` }}
+                />
               </div>
             </div>
           )}
@@ -563,30 +684,85 @@ export default function BossBattlePage() {
             )}
           </div>
           <div className="h-4 bg-black/70 rounded-full overflow-hidden border border-white/15 shadow-inner">
-            <div className="h-full rounded-full bg-green-400 w-full"
-              style={{ boxShadow: "0 0 8px #4ade80" }} />
-          </div>
-          {boss.phase === "combat" && (
             <motion.div
-              animate={timeRemaining <= 10 ? { opacity: [1, 0.3, 1] } : {}}
-              transition={{ duration: 0.4, repeat: Infinity }}
-              className={`text-xs mt-0.5 font-mono font-bold ${
-                timeRemaining <= 10 ? "text-red-400" : "text-white/35"
-              }`}
-            >
-              ⏱ {timeRemaining}s
-            </motion.div>
-          )}
+              className="h-full rounded-full"
+              animate={{ width: `${playerHp}%` }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              style={{
+                backgroundColor: playerHp > 60 ? "#22c55e" : playerHp > 30 ? "#f59e0b" : "#ef4444",
+                boxShadow: playerHp > 60 ? "0 0 8px #4ade80" : playerHp > 30 ? "0 0 8px #f59e0b" : "0 0 8px #ef4444",
+              }}
+            />
+          </div>
+          <div className="text-xs text-white/35 mt-0.5">{playerHp} / 100 HP</div>
         </div>
 
-        {/* Phaser battle scene — handles all character animation */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <PhaserBattleScene
-            bossSheetUrl="/sprites/boss_atom_sheet.png"
-            width={600}
-            height={260}
-            onReady={(handle) => { phaserRef.current = handle; }}
-          />
+        {/* Player energy bar */}
+        {boss.phase === "combat" && (
+          <div className="absolute z-10" style={{ top: "4.5rem", right: "1rem", width: "42%" }}>
+            <div className="flex items-center justify-between mb-0.5">
+              <span className="text-blue-400 text-xs font-mono">ENERGY</span>
+              <span className="text-blue-400 text-xs font-mono">{Math.floor(playerEnergy)}</span>
+            </div>
+            <div className="h-2.5 bg-black/60 rounded-full overflow-hidden border border-blue-900/40">
+              <div
+                className="h-full rounded-full transition-all duration-150"
+                style={{
+                  width: `${playerEnergy}%`,
+                  backgroundColor: playerEnergy >= 100 ? "#a855f7" : "#3b82f6",
+                  boxShadow: playerEnergy >= 100 ? "0 0 10px #a855f7" : "none",
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Arena — battle area */}
+        <div className="relative w-full" style={{ height: 280 }}>
+
+          {/* Arena background */}
+          {bossJsonData?.arenaBackground && (
+            <img
+              src={bossJsonData.arenaBackground}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover opacity-50"
+              style={{ zIndex: 0 }}
+              draggable={false}
+            />
+          )}
+
+          {/* Characters — Framer Motion */}
+          <div className="absolute inset-0 flex items-end justify-between px-8 pb-4" style={{ zIndex: 2 }}>
+            <BattleCharacter
+              idleSrc={heroImages.idle}
+              attackSrc={heroImages.attack}
+              hurtSrc={heroImages.hurt}
+              state={heroState}
+              width={150}
+              height={190}
+              alt="Hero"
+            />
+            <BattleCharacter
+              idleSrc={bossJsonData?.images?.idle   ?? "/images/characters/boss-acid-baron-idle.png"}
+              attackSrc={bossJsonData?.images?.attack ?? "/images/characters/boss-acid-baron-attack.png"}
+              hurtSrc={bossJsonData?.images?.hurt    ?? "/images/characters/boss-acid-baron-hurt.png"}
+              state={bossState}
+              flip
+              width={160}
+              height={200}
+              alt={bossJsonData?.name ?? "Boss"}
+            />
+          </div>
+
+          {/* Phaser canvas — particles and damage numbers only */}
+          <div className="absolute inset-0" style={{ zIndex: 3, pointerEvents: "none" }}>
+            <PhaserBattleScene
+              width={600}
+              height={280}
+              onReady={(handle) => { (phaserRef as any).current = handle; }}
+            />
+          </div>
+
         </div>
       </div>
 
@@ -684,22 +860,46 @@ export default function BossBattlePage() {
                 })}
               </div>
 
+              {/* Primary combat buttons — above power-ups */}
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={handleHit}
+                  disabled={playerEnergy < 1 || boss.phase !== "combat"}
+                  className={`flex-1 py-2.5 rounded-lg font-mono font-bold text-sm transition-all border
+                    ${playerEnergy >= 70
+                      ? "bg-purple-600/80 border-purple-500 text-white shadow-lg shadow-purple-900/50"
+                      : playerEnergy >= 40
+                      ? "bg-blue-700/80 border-blue-500 text-white"
+                      : playerEnergy >= 1
+                      ? "bg-blue-900/60 border-blue-800 text-blue-300"
+                      : "bg-gray-900/60 border-gray-800 text-gray-600 cursor-not-allowed"
+                    }`}
+                >
+                  HIT
+                  {playerEnergy >= 1
+                    ? ` · ${calcHitDamage(Math.floor(playerEnergy))} dmg`
+                    : " · (need energy)"}
+                </button>
+                <button
+                  onClick={handleBlock}
+                  disabled={playerEnergy < 40 || shieldCooldown || shieldActive || boss.phase !== "combat"}
+                  className={`flex-1 py-2.5 rounded-lg font-mono font-bold text-sm transition-all border
+                    ${shieldActive
+                      ? "bg-cyan-500/30 border-cyan-400 text-cyan-300 animate-pulse"
+                      : shieldCooldown
+                      ? "bg-gray-900/60 border-gray-800 text-gray-600 cursor-not-allowed"
+                      : playerEnergy >= 40
+                      ? "bg-cyan-800/80 border-cyan-600 text-cyan-300 hover:bg-cyan-700/80"
+                      : "bg-gray-900/60 border-gray-800 text-gray-600 cursor-not-allowed"
+                    }`}
+                >
+                  {shieldActive ? "SHIELDED" : shieldCooldown ? "COOLDOWN" : "BLOCK · 40"}
+                </button>
+              </div>
+
               {/* Power-up bar */}
               {!isAnswered && (
                 <div className="flex items-center gap-2 mt-2 pt-2 border-t border-white/5">
-                  <button
-                    onClick={useExtraTime}
-                    disabled={powerUps.extraTime <= 0}
-                    title="+10 seconds"
-                    className={`flex-1 flex flex-col items-center py-1.5 rounded-lg border text-xs font-medium transition-all ${
-                      powerUps.extraTime > 0
-                        ? "bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20 active:scale-95"
-                        : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
-                    }`}
-                  >
-                    <span className="text-base leading-none">⏱️</span>
-                    <span className="mt-0.5">+10s {powerUps.extraTime > 0 && `(${powerUps.extraTime})`}</span>
-                  </button>
                   <button
                     onClick={useHint}
                     disabled={powerUps.hint <= 0 || eliminatedOptions.length > 0}
@@ -712,21 +912,6 @@ export default function BossBattlePage() {
                   >
                     <span className="text-base leading-none">💡</span>
                     <span className="mt-0.5">Hint {powerUps.hint > 0 && `(${powerUps.hint})`}</span>
-                  </button>
-                  <button
-                    onClick={useShield}
-                    disabled={powerUps.shield <= 0 || playerShield}
-                    title="Absorb next wrong answer"
-                    className={`flex-1 flex flex-col items-center py-1.5 rounded-lg border text-xs font-medium transition-all ${
-                      powerUps.shield > 0 && !playerShield
-                        ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 active:scale-95"
-                        : playerShield
-                        ? "bg-cyan-500/20 border-cyan-400 text-cyan-300 animate-pulse cursor-default"
-                        : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
-                    }`}
-                  >
-                    <span className="text-base leading-none">🛡️</span>
-                    <span className="mt-0.5">{playerShield ? "Active!" : `Shield ${powerUps.shield > 0 ? `(${powerUps.shield})` : ""}`}</span>
                   </button>
                 </div>
               )}
@@ -758,33 +943,6 @@ export default function BossBattlePage() {
                   {currentQuestion.explanation}
                 </div>
               )}
-            </motion.div>
-          )}
-
-          {/* ── SHIELD ── */}
-          {boss.phase === "shield" && (
-            <motion.div
-              key="shield"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col items-center justify-center flex-1 p-6 text-center"
-            >
-              <Shield className="w-14 h-14 text-blue-400 mb-3 animate-pulse" />
-              <h2 className="text-xl font-bold text-white mb-1">Shield Activated!</h2>
-              <p className="text-gray-400 text-sm mb-4">Destroy the shield to continue attacking!</p>
-              <div className="w-52 mb-4">
-                <div className="h-3 bg-black/50 rounded-full overflow-hidden border border-blue-400/30">
-                  <div
-                    className="h-full bg-blue-400 rounded-full transition-all"
-                    style={{ width: `${(boss.shieldHp / (boss.maxHp * 0.15)) * 100}%` }}
-                  />
-                </div>
-                <p className="text-blue-400 text-xs mt-1">Shield HP: {boss.shieldHp}</p>
-              </div>
-              <Button onClick={handleShieldBreak} className="bg-blue-600 hover:bg-blue-700">
-                <Swords className="w-4 h-4 mr-2" /> Attack Shield!
-              </Button>
             </motion.div>
           )}
 
@@ -871,6 +1029,14 @@ export default function BossBattlePage() {
           previousRank={rankUpData.previous}
           newRank={rankUpData.new}
           onComplete={() => setShowRankUp(false)}
+        />
+      )}
+
+      {/* Character selection — shown before first battle if no choice saved */}
+      {characterChoice === null && (
+        <CharacterSelectModal
+          session={session}
+          onSelect={(choice) => setCharacterChoice(choice)}
         />
       )}
     </div>

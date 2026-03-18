@@ -1,4 +1,6 @@
 import './globals.css';
+import { SupabaseAuthProvider } from './auth/supabase-provider';
+import { Toaster } from 'sonner';
 
 export const dynamic = 'force-dynamic'
 
@@ -14,7 +16,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        {children}
+        <SupabaseAuthProvider>
+          {children}
+        </SupabaseAuthProvider>
+        <Toaster />
       </body>
     </html>
   )

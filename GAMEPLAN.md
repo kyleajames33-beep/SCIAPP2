@@ -363,10 +363,11 @@ Before writing any code, a new AI session should:
 - [x] ~~Boss battle page working~~
 - [x] ~~Questions API working~~
 - [x] ~~All 339 questions linked to QuestionSets~~
-- [ ] **NEXT: Phase 1 — Pokemon battle screen visual overhaul**
-- [ ] Phase 2 — Fix boss attempt API
-- [ ] Phase 3 — Fix campaign progress API
-- [ ] Phase 4 — Sound effects
+- [x] ~~Phase 1 — Pokemon battle screen visual overhaul~~ (split-screen, sprites, animations, sounds)
+- [x] ~~Phase 2 — Fix boss attempt API~~ (Supabase rewrite, guest-safe, saves BossAttempt + User stats)
+- [x] ~~Phase 3 — Fix campaign progress API~~ (Supabase rewrite, guest returns empty arrays)
+- [x] ~~Phase 4 — Sound effects~~ (wired in Phase 1: correct, wrong, boss_hit, level_up)
+- [ ] **NEXT: Phase 5 — Campaign map visual polish**
 - [ ] Phase 5 — Campaign map visual polish
 - [ ] Phase 6 — Economy loop
 - [ ] Phase 7 — Player progression

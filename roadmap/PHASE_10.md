@@ -1,321 +1,604 @@
-# Phase 10 — Years 7–10, Full Multiplayer, Monetisation Live
-## "The Complete Product"
+# Phase 10 — Production Launch
+## "Ship It"
 
-> This is the final phase. When Phase 10 is complete, the product matches VISION.md.
-> Phase 9 finished: full HSC science suite, teacher dashboard, school subscriptions,
-> friend system, leaderboards, race mode, cosmetics shop.
-
----
-
-## What Phase 9 left us with
-
-- All 4 HSC science subjects playable (Chemistry, Biology, Physics, Earth & Env)
-- Teacher dashboard: assign modules, track class, custom questions
-- School subscription model live and billing
-- Async leaderboards + friend system
-- Race mode: 2 students fight the same boss simultaneously
-- Cosmetics shop: skins, boss themes, rank badges
-- Freemium model working (free game, paid cosmetics)
-- Auth fully implemented
-- Mobile-responsive UI
+> When Phase 10 is complete, ChemQuest is deployed to Vercel with a production Supabase
+> project, the Pro paywall is active for Modules 2–3, the TypeScript build is clean,
+> and API endpoints have basic rate limiting.
 
 ---
 
-## Phase 10 Goals
+## CONTEXT WINDOW SURVIVAL PROTOCOL
 
-1. Years 7–10 NSW science curriculum — full content and world
-2. Co-op mode (2 students share HP bar vs buffed boss)
-3. PvP mode (students fight each other)
-4. Advanced teacher tools (cohort analytics, exam mode)
-5. Full mobile optimisation (not just responsive — touch-native)
-6. Platform hardening: performance, scale, security audit
-7. Monetisation maturity: school billing, cosmetics catalogue complete
+If you run out of context mid-phase, the next session must:
+1. Read `roadmap/PHASE_10.md` (this file) in full
+2. Check the PROGRESS TRACKER table below
+3. Read the files listed under each incomplete sub-phase before touching them
+4. Never re-read files already marked ✅ in the tracker
 
 ---
 
-## 1. Years 7–10 Content
+## PROGRESS TRACKER
 
-### Curriculum scope
-Four year levels × multiple topics each. NSW Science syllabus.
-
-| Year | Topics (examples) |
-|------|-------------------|
-| 7    | Properties of matter, Classification of living things, Earth & Space |
-| 8    | Chemical change, Forces & motion, Ecosystems |
-| 9    | Chemical reactions, Energy transfer, Body systems |
-| 10   | Atomic theory intro, Evolution, Motion & forces advanced |
-
-### What needs building
-- **Question bank**: 20–30 questions per topic minimum. Each question needs:
-  - Question text
-  - 4 options (A/B/C/D)
-  - Correct answer index
-  - Explanation
-  - Topic tag
-  - Year level tag
-  - Difficulty (1–3)
-- **Boss sprites**: 1 unique boss per year level per subject = ~16 new sprite sheets
-  (can share attack/hurt animation structure, unique idle + colour palette per boss)
-- **Overworld maps**: 4 new world maps (Year 7, 8, 9, 10 science)
-  - Each map: 3–5 modules, each module: 5–8 nodes + boss gate
-- **Boss configs**: add to `bosses.json` with `chargeTime`, `themeColor`,
-  `particleColors`, `yearLevel`, `subject`
-
-### Database changes
-- Add `yearLevel` column to `Question` table (nullable for HSC content)
-- Add `subject` column to `Question` (chemistry / biology / physics / earth / science)
-- Add `CurriculumWorld` table: `{ id, name, yearLevel, subject, mapConfig }`
-- Teacher dashboard filter by year level
-
-### Content pipeline
-- Questions authored by: curriculum-aligned AI generation + teacher review
-- Each question set must pass accuracy review before going live
-- Flag system: students can report incorrect questions
+| Sub-phase | Title                           | Status | Key files touched |
+|-----------|---------------------------------|--------|-------------------|
+| 10.1      | Fix next.config.js build flags  | ⬜     | next.config.js |
+| 10.2      | Update .env.example             | ⬜     | .env.example |
+| 10.3      | Reinstate Pro paywall           | ⬜     | app/campaign/page.tsx |
+| 10.4      | Rate limit boss/attempt         | ⬜     | app/api/campaign/boss/attempt/route.ts |
+| 10.5      | Vercel deployment config        | ⬜     | vercel.json |
+| 10.6      | Pre-deploy checklist            | ⬜     | — |
+| 10.7      | ASSESSMENT_02.md                | ⬜     | roadmap/ASSESSMENT_02.md (new) |
 
 ---
 
-## 2. Co-op Mode
+## CURRENT STATE (verified by code reads)
 
-Two students fight a boss together. Shared HP bar. Boss has 2× HP.
+### next.config.js (verified)
+```js
+const nextConfig = {
+  distDir: '.next',
+  eslint: {
+    ignoreDuringBuilds: true,   // ← HIDES all ESLint errors in CI/CD
+  },
+  typescript: {
+    ignoreBuildErrors: true,    // ← HIDES all TypeScript errors in CI/CD
+  },
+  images: { unoptimized: true },
+};
+```
+Both ignore flags were set to let the dev build succeed despite known type issues.
+In production these flags allow broken code to deploy silently.
 
-### Game logic
-- Session created by Player 1, Player 2 joins via code or friend invite
-- Both see the same question simultaneously
-- Both answer independently — if BOTH get it right: +energy to shared pool
-- If only one gets it right: +half energy
-- If both wrong: −energy AND wrong-streak counter ticks for both
-- Hit and Block buttons: either player can press, first press wins
-- Boss attacks: hits shared HP bar
-- Win: boss HP = 0. Lose: shared HP = 0
+### .env.example (verified)
+The file still shows `DATABASE_URL` and `JWT_SECRET` — legacy fields from an
+earlier architecture. The app no longer uses these. The actual required env vars are:
+- `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase anonymous key (safe to expose client-side)
+- `SUPABASE_SERVICE_ROLE_KEY` — Server-only service role key (never expose client-side)
 
-### Technical requirements
-- Real-time sync: Supabase Realtime (existing) or WebSocket
-- Shared game state: `CoopSession` table
-  - `{ id, player1Id, player2Id, bossId, sharedHp, bossCharge, playerEnergy,
-     currentQuestionId, status, createdAt }`
-- Both clients subscribe to session changes
-- Answer submission: both must answer before energy is resolved (or 10s timeout)
-- Latency tolerance: up to 2s delay is acceptable (answer timeout handles it)
+### vercel.json (verified)
+```json
+{
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install"
+}
+```
+Minimal and correct for a Next.js project. No regions, no environment variables,
+no cron jobs. Sufficient for initial deployment.
 
-### UI changes
-- Battle arena: two player sprites side-by-side (left + right of center)
-- Question panel: shows both players' answer status (waiting / answered)
-- "Partner answered!" indicator when co-player submits before you
-- Shared HP bar labeled "Team HP"
-- Co-op reward multiplier: +20% XP and coins vs solo
+### Campaign paywall (verified)
+Current state of `app/campaign/page.tsx` WORLDS array:
+- Module 1: `free: true` — always accessible
+- Module 2: `free: false` — Pro-locked
+- Module 3: `free: false` — Pro-locked
 
-### Matchmaking
-- V1 co-op: invite by friend or share a 6-digit code
-- V2 co-op (later): auto-match with a student at similar rank
-- No ranked co-op in Phase 10 — casual only
+Phase 7 task temporarily sets Modules 2 and 3 to `free: true` for testing/development.
+Phase 10 **reinstates** `free: false` for production readiness.
 
----
+The upsell notice at line ~446 already reads:
+> "Modules 2–8 and all their boss battles unlock with Pro."
+This is correct and does not need updating.
 
-## 3. PvP Mode
-
-Two students fight each other. One is the Hero, one is the Boss (or both fight
-a shared boss and whoever kills it wins — simpler to build).
-
-### Recommended approach for Phase 10: "Race PvP"
-Both students fight the SAME boss independently. First to kill it wins.
-Opponent's HP bar is shown as a ghost bar in the arena.
-- See opponent's boss HP in real-time — creates urgency
-- Answer faster and more accurately to win
-- No direct interaction (simpler to build, less latency-sensitive)
-
-### Full asymmetric PvP (stretch goal, may slip to post-Phase 10)
-One student plays Hero, the other plays the Boss.
-- Boss player answers questions to charge attacks faster
-- Hero player answers to build energy and attack
-- Boss player can choose WHEN to fire (not just on timer)
-- Harder to balance, harder to build — flag as aspirational
-
-### Technical requirements (Race PvP)
-- Extend `CoopSession` schema or create `PvpSession` table
-- Both clients' boss HP tracked independently server-side
-- Broadcast opponent HP updates via Supabase Realtime
-- Win condition: first `bossHp <= 0` message to server wins
-- Reward: winner gets 2× coins, both get XP
-
-### Matchmaking
-- Ranked: ELO-style rating per subject
-- Unranked: casual queue with no rating change
-- Friend challenge: direct invite
+### Rate limiting (verified)
+No rate limiting exists on any API route. The most sensitive endpoint is
+`/api/campaign/boss/attempt` — it writes XP, coins, gems to the User table.
+A bad actor could spam this endpoint to farm infinite rewards.
 
 ---
 
-## 4. Advanced Teacher Tools
+## GUARDRAILS
 
-Phase 7 built the basic dashboard. Phase 10 completes it.
-
-### Cohort analytics
-- Class performance heatmap: question topic × accuracy %
-- "Most missed questions" — ranked list, teacher can add to custom set
-- Student comparison: anonymous ranking within class
-- Progress over time: graph of XP / boss defeats per student per week
-
-### Exam mode
-- Teacher creates a timed "exam session"
-- Students join with a class code
-- Questions are fixed (teacher-selected or auto-generated from topic)
-- No power-ups, no energy system — just answer questions, scored at end
-- Teacher sees live results as students submit
-- Exportable report (CSV) after session ends
-
-### Assignment system
-- Teacher assigns: "Complete Module 2 before Friday"
-- Students see assignment banner on their campaign map
-- Completion tracked, teacher notified
-- Overdue: badge appears on student's map
-
-### Custom question sets (upgrade from Phase 7)
-- Phase 7: teacher can create questions
-- Phase 10: teacher can import questions from CSV template
-- Question approval workflow: teacher-created Qs flagged for review before
-  going live to other schools (to prevent bad content spreading)
+1. **Do not remove `ignoreBuildErrors` without fixing all TypeScript errors first.**
+   The correct sequence is: run `npx tsc --noEmit`, fix all errors reported,
+   THEN remove the flag. Removing the flag without fixing errors will break the build.
+2. **Do not set `images: { unoptimized: false }` without verifying image paths.**
+   Vercel Image Optimization requires images to be in `public/` and served as
+   `next/image`. Most current images may not use `<Image>` component. Leave `unoptimized: true`
+   for now unless specifically auditing images.
+3. **SUPABASE_SERVICE_ROLE_KEY must never appear in client-side code.**
+   Any env var without `NEXT_PUBLIC_` prefix is server-only in Next.js.
+   Do not add `NEXT_PUBLIC_` to the service role key.
+4. **Rate limiting must fail open, not closed.** If the rate limit check fails
+   (e.g., memory pressure), the request should proceed rather than blocking
+   legitimate users.
+5. **Do not add ASSESSMENT_02.md until all other sub-phases are complete.**
+   The assessment must reflect actual completed state, not planned state.
+6. **Modules 2 & 3 paywall reinstatement (Task 10.3) must happen AFTER Phase 7
+   content is verified working.** The sequence is: verify Module 2 and 3 gameplay
+   works end-to-end with `free: true` (Phase 7), then set back to `free: false`
+   in Phase 10.
 
 ---
 
-## 5. Full Mobile Optimisation
+## SUB-PHASE 10.1 — Fix next.config.js Build Flags
 
-Currently: responsive web (works on mobile, not optimised for it).
-Phase 10: touch-native feel.
+**Goal**: Production builds surface TypeScript and ESLint errors instead of
+silently deploying broken code.
 
-### Key changes
-- Battle arena: sprites scale to fill mobile screen (portrait mode priority)
-- Hit and Block buttons: large touch targets (min 56px), thumb-accessible
-- Question answers: full-width tap targets, no hover states
-- Campaign map: pinch-to-zoom on the overworld, swipe to scroll
-- Keyboard: virtual keyboard doesn't push up the battle arena
-- Performance: 60fps on mid-range Android (Samsung A-series)
+### Task 10.1.1 — Run TypeScript check first
 
-### Testing requirements
-- Test on: iPhone SE (small), iPhone 14, Samsung Galaxy A54, iPad
-- Lighthouse mobile score ≥ 85
-- No content overflow at 320px viewport width
-- Touch events tested (no mouse-only interactions)
+Before touching `next.config.js`, run the TypeScript compiler in check-only mode:
 
-### PWA (Progressive Web App)
-- Add web app manifest
-- "Add to Home Screen" prompt after 3rd session
-- Offline: campaign map loads, questions cached for current module
-- Push notifications: "Your friend just beat the boss!" (opt-in)
+```bash
+npx tsc --noEmit 2>&1 | head -60
+```
 
----
+Count the errors. If there are more than 20 errors, **do not remove the flag yet**.
+Instead, note the count in this tracker and proceed to fix errors type-by-type.
 
-## 6. Platform Hardening
+Common error categories to expect:
+- `Property does not exist` — from Phase 6 rank system consolidation (removing
+  `badge`, `element`, `minXP` fields that profile page may still reference)
+- `Argument of type 'string' is not assignable` — from Phase 9 sound fix
+  (playSound call sites using string literals instead of the union type)
+- `Property 'X' is optional but type 'Y' requires it` — from Phase 7 boss data
+  additions (`mole-master`, `reaction-king` missing fields)
 
-### Performance
-- Phaser bundle lazy-loaded — current approach is correct, verify chunk size < 400kb
-- Question images (if any added) served via Vercel CDN
-- Supabase queries: add indexes on `Question.topic`, `Question.subject`,
-  `Question.yearLevel`, `BossAttempt.userId`, `CampaignProgress.userId`
-- Boss battle page: measure and optimise time-to-interactive
-  (target: < 2s on 4G mobile)
+### Task 10.1.2 — Fix TypeScript errors
 
-### Security audit
-- All API routes: verify auth checks, no unauthenticated write access
-- Service role key: confirm never exposed client-side
-- Rate limiting on `/api/campaign/boss/attempt` (max 30 submissions/min per user)
-- Input validation: all user-submitted fields sanitised
-- CORS: lock Supabase to production domain only
+Work through the errors systematically. For each file with errors:
+1. Read the file
+2. Fix the type error with minimal change (cast, add optional chaining, correct type)
+3. Do NOT refactor or restructure — just fix the type
 
-### Scalability
-- Supabase plan review: confirm row limits and concurrent connection limits
-  handle 1000+ simultaneous users
-- Vercel: confirm serverless function timeout is sufficient for complex queries
-- Real-time: Supabase Realtime channel limits for co-op/PvP sessions
-- Load test: simulate 500 concurrent boss battles
+### Task 10.1.3 — Remove ignoreBuildErrors flag
 
-### Error monitoring
-- Add Sentry (or similar) for frontend error tracking
-- Alert on error spike (> 10 errors/min)
-- Log all failed boss attempt submissions to a separate table for debugging
+Once `npx tsc --noEmit` exits with 0 errors, update `next.config.js`:
 
----
+```js
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  distDir: '.next',
+  eslint: {
+    ignoreDuringBuilds: false,  // changed
+  },
+  typescript: {
+    ignoreBuildErrors: false,   // changed
+  },
+  images: { unoptimized: true },
+};
 
-## 7. Monetisation Maturity
+module.exports = nextConfig;
+```
 
-### Cosmetics catalogue (complete)
-Phase 6 launched the shop. Phase 10 fills it out.
+Then run `npm run build` locally to verify the build succeeds cleanly.
 
-| Category | Items |
-|----------|-------|
-| Character skins | 8 hero variants (lab themes, seasonal) |
-| Boss themes | Reskin boss colour palette (e.g. gold Acid Baron) |
-| Rank badges | Animated versions of element rank badges |
-| Battle backgrounds | Unique arena environments per purchase |
-| Sound packs | Retro 8-bit vs modern synth |
+**If the build fails after removing the flags**: ESLint errors will also surface.
+Fix each ESLint error (typically `no-unused-vars`, `react-hooks/exhaustive-deps`).
+Do not use `// eslint-disable` comments unless the rule is a false positive.
 
-All cosmetics: gems only (no real money directly). Gems earnable in-game
-or purchasable. This keeps it ethical for students.
+### Predicted problems
 
-### Gem packs (if freemium live)
-- 100 gems: $1.99
-- 500 gems: $7.99
-- 1200 gems: $14.99
-- School pack: bulk gems for teacher to distribute to class as rewards
-
-### School billing
-- Stripe integration for school subscriptions
-- Invoice-based billing (schools won't use credit cards — they need invoices)
-- Annual plan only (schools budget annually)
-- Pricing tiers:
-  - Small school (< 200 students): $299/year
-  - Medium (200–1000): $599/year
-  - Large (1000+): custom
-
-### Analytics dashboard (internal)
-- Revenue per month, churn, new schools, active students
-- Top played modules, most failed bosses (content quality signal)
-- Cohort retention (do students come back after first session?)
+| Problem | Mitigation |
+|---------|-----------|
+| 50+ TypeScript errors accumulated across 10 phases | Fix by file, not by type. Start with `app/` files (user-facing), then `lib/`. API routes last (server-side TS errors don't affect client) |
+| ESLint `react-hooks/exhaustive-deps` fires on `useCallback` in Phase 9 restart handler | Add the missing dep or restructure. Don't disable the rule — it catches real bugs |
+| Build passes locally but fails on Vercel due to Node version | Check Vercel project settings: Node 18 or 20. Add `"engines": { "node": ">=18" }` to package.json if needed |
 
 ---
 
-## Done Criteria for Phase 10
+## SUB-PHASE 10.2 — Update .env.example
 
-Phase 10 is complete when ALL of the following are true:
+**Goal**: Any developer cloning the repo knows exactly which environment variables
+are required and what they do.
 
-- [ ] Years 7–10 content live: all 4 year levels, all science topics, questions reviewed
-- [ ] Co-op mode: 2 players can complete a boss battle together, results save correctly
-- [ ] Race PvP: 2 players can race the same boss, winner determined and rewarded
-- [ ] Teacher exam mode: teacher can create, run, and export a timed exam session
-- [ ] Cohort analytics: teacher can see class performance heatmap and missed questions
-- [ ] Mobile: battle and campaign map feel native on iPhone and Android, PWA installable
-- [ ] Performance: < 2s time-to-interactive on 4G mobile
-- [ ] Security audit passed: no critical or high vulnerabilities
-- [ ] Cosmetics shop: minimum 20 purchasable items across all categories
-- [ ] Gem purchase flow: works end-to-end (purchase → gems added → spend in shop)
-- [ ] School billing: invoice flow tested with at least 2 real school accounts
-- [ ] Error monitoring: Sentry live, alerting configured
-- [ ] Load tested: 500 concurrent users without degradation
+### Task 10.2.1 — Rewrite .env.example
+
+Replace the entire contents of `.env.example`:
+
+```bash
+# ChemQuest Environment Variables
+# ─────────────────────────────────────────────────────────────
+# Copy this file to .env.local and fill in your values.
+# NEVER commit .env.local to git — it is in .gitignore.
+# ─────────────────────────────────────────────────────────────
+
+# ── Supabase (required) ──────────────────────────────────────
+# Find these in your Supabase project → Settings → API
+
+# Public URL — safe to expose to the browser
+NEXT_PUBLIC_SUPABASE_URL="https://your-project-id.supabase.co"
+
+# Anonymous key — safe to expose (row-level security enforces access)
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-key-here"
+
+# Service role key — SERVER ONLY. Never use in client-side code.
+# Has full database access, bypasses RLS.
+SUPABASE_SERVICE_ROLE_KEY="your-service-role-key-here"
+```
+
+**Note**: `DATABASE_URL` and `JWT_SECRET` that appear in the old `.env.example`
+are NOT used by the current application. Do not include them.
+
+### Task 10.2.2 — Verify .gitignore covers .env.local
+
+Check `.gitignore` contains:
+```
+.env.local
+.env
+```
+
+If `.env` (without `.local`) is not in `.gitignore`, add it. The `.env.example`
+file IS committed (it's documentation), but all files with actual secrets must not be.
+
+### Predicted problems
+
+| Problem | Mitigation |
+|---------|-----------|
+| Developer creates `.env` instead of `.env.local` and it gets committed | `.env` must be in `.gitignore`. Verify this. |
+| Vercel deployment uses different variable names | Vercel reads `NEXT_PUBLIC_` vars automatically. Service role key must be added manually in Vercel dashboard under Environment Variables. |
 
 ---
 
-## Risks & Mitigations
+## SUB-PHASE 10.3 — Reinstate Pro Paywall
 
-| Risk | Likelihood | Mitigation |
-|------|-----------|------------|
-| Co-op real-time sync is too laggy on mobile | Medium | Build with 2s timeout buffer; degrade gracefully to "one player answered" |
-| Years 7-10 question quality is poor from AI | High | Never publish without human curriculum review; build flagging system early |
-| PvP balancing takes forever | High | Ship Race PvP only; asymmetric PvP is post-Phase 10 |
-| School invoicing is complex | Medium | Use Stripe's invoice module; don't build custom billing |
-| Mobile 60fps fails on low-end Android | Medium | Profile early, consider disabling Phaser particles on mobile |
-| Sentry adds bundle size | Low | Use lazy import, only load in production |
+**Goal**: Modules 2 and 3 require a Pro subscription. Free users see the lock UI.
+
+### Pre-read checklist
+Before editing, re-read:
+- `app/campaign/page.tsx` lines 44–86 (the WORLDS array)
+- Verify Phase 7 has been completed — Module 2 chambers and bosses must be
+  verified working before locking them
+
+### Task 10.3.1 — Revert Modules 2 & 3 to free: false
+
+Phase 7 Task 7.5.1 explicitly changed Modules 2 and 3 to `free: true` for testing,
+with a `// TODO Phase 10: restore Pro lock` comment. This task reverses that change.
+
+In `app/campaign/page.tsx`, find the WORLDS array and **change** the following:
+
+```ts
+// Module 2: change free: true back to free: false, remove TODO comment
+{
+  id: 'module-2',
+  ...
+  chambers: [
+    { id: 'm2-c1', name: 'The Mole', free: false },       // was true in Phase 7
+    { id: 'm2-c2', name: 'Stoichiometry', free: false },   // was true in Phase 7
+    { id: 'm2-c3', name: 'Concentration', free: false },   // was true in Phase 7
+    { id: 'm2-c4', name: 'Gas Laws', free: false },        // was true in Phase 7
+  ],
+  free: false,  // was true in Phase 7 — now reinstating Pro lock
+}
+
+// Module 3: same revert
+{
+  id: 'module-3',
+  ...
+  free: false,  // was true in Phase 7 — now reinstating Pro lock
+}
+```
+
+Also verify the chamber-level `free` flags:
+- Module 2 chambers: all `free: false` (verified in code: lines 65–68)
+- Module 3 chambers: all `free: false` (verified in code: lines 79–81)
+These were not changed by Phase 7 so they may already be correct.
+
+### Task 10.3.2 — Verify lock UI renders correctly
+
+With a free-tier test user, manually verify:
+- Module 2 shows the lock icon and the "Pro" badge
+- Clicking Module 2's boss or chambers does NOT navigate (or redirects to upsell)
+- The upsell notice appears: "Modules 2–8 and all their boss battles unlock with Pro."
+
+The lock UI is already implemented in `app/campaign/page.tsx` via `isLocked` flag
+at line 214: `const isLocked = !world.free && userTier === 'free';`
+
+### Task 10.3.3 — Verify Pro tier bypass works
+
+With a Pro-tier test user (set `subscriptionTier = 'pro'` directly in Supabase):
+- Module 2 and 3 are accessible
+- Lock icon does NOT appear
+- Chambers and boss are clickable
+
+### Predicted problems
+
+| Problem | Mitigation |
+|---------|-----------|
+| No test account with Pro tier exists | Update the user record directly in Supabase table editor: `UPDATE "User" SET "subscriptionTier" = 'pro' WHERE email = 'test@example.com'` |
+| The `/api/auth/me` endpoint doesn't return `subscriptionTier` | Check `app/api/auth/me/route.ts` — ensure `subscriptionTier` is selected from the User table |
 
 ---
 
-## What comes AFTER Phase 10
+## SUB-PHASE 10.4 — Rate Limit Boss/Attempt Endpoint
 
-Phase 10 completes the VISION.md. Post-Phase 10 (not planned yet):
-- Asymmetric PvP (Hero vs Boss player)
-- International curriculum (UK GCSE, US Common Core)
-- Native iOS/Android apps
-- AI-generated personalised question difficulty
-- Classroom competition events (tournament brackets)
+**Goal**: Prevent XP/coin farming by limiting how frequently a user can submit
+boss attempt results.
+
+### Design decision
+
+Use an **in-memory Map** as a simple rate limiter. This is stateless across
+Vercel serverless function instances (different instances don't share memory)
+but is sufficient for MVP:
+- Prevents rapid-fire submissions from a single user within one function instance
+- Easy to understand, zero dependencies
+- Upgrade path: replace Map with Redis/Upstash when needed
+
+The limit: **1 submission per 10 seconds per userId** (aggressive but realistic —
+a real boss fight takes 2–5 minutes minimum).
+
+### Task 10.4.1 — Add rate limiter to boss attempt route
+
+In `app/api/campaign/boss/attempt/route.ts`, add after the imports:
+
+```ts
+// Simple in-memory rate limiter (per-instance, MVP-grade)
+// Limits to 1 boss attempt submission per 10 seconds per user
+const attemptRateLimit = new Map<string, number>();
+const RATE_LIMIT_MS = 10_000; // 10 seconds
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const lastAttempt = attemptRateLimit.get(userId) ?? 0;
+  if (now - lastAttempt < RATE_LIMIT_MS) {
+    return false; // rate limited
+  }
+  attemptRateLimit.set(userId, now);
+  return true; // allowed
+}
+```
+
+Then in the POST handler, after `userId` is confirmed (not null), add:
+
+```ts
+// Rate limit check (after userId confirmed, before DB write)
+if (!checkRateLimit(userId)) {
+  return json({ error: "Too many requests" }, 429);
+}
+```
+
+Place this check BEFORE the `calculateRewards` call and before any DB writes.
+
+### Task 10.4.2 — Prevent Map from growing indefinitely
+
+The `attemptRateLimit` Map will accumulate entries in long-running instances.
+Add a simple cleanup: evict entries older than 1 minute periodically.
+
+```ts
+// Prune stale entries to prevent memory leak in long-lived instances
+if (attemptRateLimit.size > 1000) {
+  const cutoff = Date.now() - 60_000;
+  for (const [uid, ts] of attemptRateLimit) {
+    if (ts < cutoff) attemptRateLimit.delete(uid);
+  }
+}
+```
+
+Add this before `attemptRateLimit.set(userId, now)` inside `checkRateLimit`.
+
+### Task 10.4.3 — Guest requests bypass rate limit
+
+Guest requests (where `userId === null`) return early with
+`{ rewards: null, rankUp: null }` before the rate limit check. This is correct —
+guests can't farm rewards since they get `null`. No change needed.
+
+### Predicted problems
+
+| Problem | Mitigation |
+|---------|-----------|
+| Vercel serverless: multiple instances don't share the Map — rate limit only applies within one instance | This is acceptable for MVP. A real fix uses Redis (Upstash has a free tier). Document this as a known limitation. |
+| Legitimate users retry immediately after a network error and hit the rate limit | 10 seconds is generous — a real boss fight is 2+ minutes. Legitimate retries after a network error within 10 seconds are rare. If this becomes an issue, reduce to 5 seconds and expose a Retry-After header. |
+| 429 response breaks frontend unexpectedly | The frontend `submitBossAttempt` currently doesn't check response status. Add status check in Phase 6 task 6.2: if `!res.ok`, show an error toast instead of crashing |
 
 ---
 
-*Previous phase: PHASE_09.md*
-*Vision: VISION.md*
-*This is the final phase.*
+## SUB-PHASE 10.5 — Vercel Deployment Config
+
+**Goal**: `vercel.json` is production-ready and correctly configured.
+
+### Task 10.5.1 — Review vercel.json
+
+Current `vercel.json`:
+```json
+{
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install"
+}
+```
+
+This is correct. No changes required for basic deployment.
+
+**Optional additions** (only add if the need arises):
+
+```json
+{
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
+  "regions": ["syd1"]
+}
+```
+
+`"regions": ["syd1"]` routes serverless functions to Sydney — appropriate for
+an Australian HSC app. Add if the Vercel project is not already in Sydney.
+
+### Task 10.5.2 — Verify environment variables in Vercel dashboard
+
+Before deploying, ensure all three env vars are set in the Vercel project:
+
+| Variable | Environment | Notes |
+|----------|-------------|-------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Production, Preview, Development | The Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Production, Preview, Development | Safe to expose |
+| `SUPABASE_SERVICE_ROLE_KEY` | Production, Preview | Never expose in Development (use anon key locally) |
+
+The two `NEXT_PUBLIC_` vars must also be added to the "Development" environment
+so local `vercel dev` works.
+
+### Task 10.5.3 — Verify Supabase allows Vercel domain
+
+In Supabase → Authentication → URL Configuration:
+- Add the production Vercel URL to **Site URL**: `https://your-app.vercel.app`
+- Add `https://your-app.vercel.app/**` to **Redirect URLs**
+- Add preview URL pattern: `https://*-your-team.vercel.app/**`
+
+Without this, Supabase OAuth (if used) and auth redirects will fail on the
+deployed version.
+
+### Task 10.5.4 — Verify Supabase RLS is active
+
+In Supabase → Table Editor, verify Row Level Security is enabled on:
+- `User` table — policies should restrict each user to their own row
+- `BossAttempt` table — users should only read/write their own attempts
+- `CampaignProgress` table — users should only read/write their own progress
+
+If RLS is disabled on any of these tables, any authenticated user can read
+another user's data. This is a security requirement, not optional.
+
+### Predicted problems
+
+| Problem | Mitigation |
+|---------|-----------|
+| `SUPABASE_SERVICE_ROLE_KEY` accidentally set as `NEXT_PUBLIC_` | This would expose the key client-side. Double-check Vercel dashboard: the service role key must NOT have `NEXT_PUBLIC_` prefix |
+| Supabase project is paused (free tier auto-pauses after 7 days inactivity) | Upgrade Supabase to Pro tier, or ensure the project is active before deployment |
+| CORS errors from Vercel to Supabase | Supabase allows all origins by default for its REST API. Only custom Edge Functions need explicit CORS headers — verify the `auth-me` Edge Function handles CORS for the Vercel domain |
+
+---
+
+## SUB-PHASE 10.6 — Pre-Deploy Checklist
+
+### Build verification
+
+```bash
+# 1. TypeScript check (must exit 0)
+npx tsc --noEmit
+
+# 2. Local build (must succeed with no errors)
+npm run build
+
+# 3. Check bundle size — verify no unexpectedly large chunks
+# Look for "First Load JS" column in build output
+# Target: < 300kB for campaign route
+```
+
+### Security checklist
+
+- [ ] `SUPABASE_SERVICE_ROLE_KEY` is NOT in `NEXT_PUBLIC_` env vars
+- [ ] `.env.local` and `.env` are in `.gitignore` and not committed
+- [ ] `auth-me` Edge Function validates JWT before returning user data
+- [ ] Boss attempt rate limit is active (Task 10.4)
+- [ ] RLS is enabled on User, BossAttempt, CampaignProgress tables
+- [ ] No `console.log` statements with sensitive data (check API routes)
+
+### Functional smoke test (production URL)
+
+After deploying to Vercel, verify each critical path:
+
+**Authentication:**
+- [ ] Register a new account → redirected to /hub
+- [ ] Log in → redirected to /hub, username visible
+- [ ] Log out → session cleared, hub shows guest state
+
+**Campaign (free tier):**
+- [ ] Module 1 chambers are accessible
+- [ ] Module 2 is locked (shows Pro badge, lock icon)
+- [ ] Module 3 is locked
+- [ ] Upsell notice visible: "Modules 2–8 and all their boss battles unlock with Pro."
+
+**Boss battle (Module 1):**
+- [ ] Boss battle loads, Phaser scene renders
+- [ ] Answer correct → damage dealt, sound plays (if not muted)
+- [ ] Answer wrong → miss animation, streak resets
+- [ ] Complete the boss fight (win or lose) → rewards modal appears
+- [ ] Rewards are saved (check Supabase User table: XP/coins incremented)
+- [ ] Rank-up works if XP crossed a threshold
+- [ ] "Try Again" resets without page reload (Phase 9)
+
+**Tutorial:**
+- [ ] New user sees BattleTutorialModal (Phase 9)
+- [ ] After dismissal, refreshing does not show it again
+
+**Hub:**
+- [ ] Disabled nav cards (Battle/Training/Shop) show "Soon" badge
+- [ ] "Play Campaign" CTA links to /campaign
+
+**Leaderboard:**
+- [ ] Loads and shows real users (Phase 5)
+- [ ] Skeleton shows during load
+
+### Performance check
+
+Run Lighthouse against the production URL (Chrome DevTools → Lighthouse):
+
+Target scores for **mobile**:
+- Performance: 60+ (Phaser 3 is heavy — 60 is realistic, 80 is ideal)
+- Accessibility: 80+
+- Best Practices: 90+
+- SEO: 80+
+
+If Performance is below 50, investigate:
+1. `next/dynamic` the Phaser battle scene (if not already lazy-loaded — it is)
+2. Check if `framer-motion` bundle is being split correctly
+3. Verify `images: { unoptimized: true }` is not loading huge uncompressed images
+
+---
+
+## SUB-PHASE 10.7 — ASSESSMENT_02.md
+
+**Goal**: A formal review of Phases 6–10, mirroring the ASSESSMENT_01.md format.
+Written AFTER all other Phase 10 tasks are complete and verified.
+
+Create `roadmap/ASSESSMENT_02.md` covering:
+
+1. **Phase 6 (Rewards & Progression)**: Did the rank consolidation work cleanly?
+   Were the 3 rank systems successfully merged? Did submitBossAttempt get the
+   auth header? Were defeat rewards shown?
+
+2. **Phase 7 (Modules 2 & 3)**: Are mole-master and reaction-king in bosses.json?
+   Do the chambers link to the correct question sets? Does the boss fight use
+   the `boss-battle` chamberId?
+
+3. **Phase 8 (Mobile)**: Does the Phaser canvas fit on a 375px screen?
+   Were all hardcoded pixel widths replaced with responsive values?
+
+4. **Phase 9 (Polish)**: Does the mute button work? Does the tutorial show once?
+   Does "Try Again" avoid a page reload? Is the error boundary in place?
+
+5. **Phase 10 (Production)**: Is `ignoreBuildErrors` removed? Is RLS active?
+   Is the rate limiter working? Did the Vercel deployment succeed?
+
+For each phase, assign a score (1–10), list what was completed correctly,
+note any deviations from the plan, and flag any remaining risks.
+
+End with a "Ship Confidence" rating and a list of any post-launch monitoring
+recommendations.
+
+---
+
+## PHASE 10 COMPLETION CRITERIA
+
+Phase 10 is complete when:
+1. `npx tsc --noEmit` exits with 0 errors
+2. `npm run build` succeeds with `ignoreBuildErrors: false`
+3. `.env.example` documents all three Supabase env vars correctly
+4. Module 2 and Module 3 are `free: false` in the WORLDS array
+5. Boss attempt endpoint returns 429 if same user submits within 10 seconds
+6. All pre-deploy security checklist items are checked off
+7. Production smoke test passes on the live Vercel URL
+8. `ASSESSMENT_02.md` is written reflecting actual completed state
+
+---
+
+## SESSION-END INSTRUCTIONS
+
+If you must stop before Phase 10 is fully complete:
+
+1. Update the PROGRESS TRACKER table — mark completed sub-phases ✅
+2. Add a "STOPPED AT" note specifying the exact task
+3. The most critical blocker is always Task 10.1 (TypeScript errors) — if the
+   build doesn't pass cleanly, nothing else matters for deployment
+4. Do NOT deploy to Vercel with `ignoreBuildErrors: true` — fix the errors first
+
+---
+
+## END OF ROADMAP (Phases 1–10)
+
+After Phase 10 is complete and `ASSESSMENT_02.md` is written, the roadmap is done.
+Post-launch work (new subjects, multiplayer, teacher dashboard, monetisation)
+should be planned in a new roadmap document: `roadmap/PHASE_11.md` or
+`roadmap/ROADMAP_V2.md`.

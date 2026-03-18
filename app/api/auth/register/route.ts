@@ -90,6 +90,30 @@ export async function POST(request: Request) {
     }
 
     console.log('[API REGISTER] User created successfully:', data.user.id);
+    
+    // Create row in User table
+    console.log('[API REGISTER] Creating User table row...');
+    const { error: userTableError } = await supabase.from("User").upsert({
+      id: data.user.id,
+      email: userEmail,
+      username: username.toLowerCase(),
+      campaignXp: 0,
+      totalScore: 0,
+      totalCoins: 100,   // starter coins
+      gems: 0,
+      gamesPlayed: 0,
+      gamesWon: 0,
+      totalCorrect: 0,
+      totalIncorrect: 0,
+      bestStreak: 0,
+      createdAt: new Date().toISOString(),
+    }, { onConflict: 'id' });
+
+    if (userTableError) {
+      console.error('[API REGISTER] User table creation error:', userTableError);
+      // Don't fail registration if User table insert fails - auth user still exists
+    }
+    
     console.log('[API REGISTER] Registration complete');
 
     return json(

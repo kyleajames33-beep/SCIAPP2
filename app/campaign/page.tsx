@@ -10,6 +10,8 @@ import {
   Atom, FlaskConical, Zap, Loader2, ChevronRight, ShoppingBag, Coins,
 } from 'lucide-react';
 import { getRank, getRankProgress, getNextRank } from '@/lib/ranks';
+import { useSupabaseAuth } from '@/app/auth/supabase-provider';
+import { authFetch } from '@/lib/auth-fetch';
 import { toast } from 'sonner';
 
 // Module → QuestionSet mapping
@@ -94,6 +96,7 @@ interface ProgressEntry {
 
 export default function CampaignPage() {
   const router = useRouter();
+  const { session, isLoading: authLoading } = useSupabaseAuth();
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState<ProgressEntry[]>([]);
   const [userTier, setUserTier] = useState('free');
@@ -101,18 +104,39 @@ export default function CampaignPage() {
   const [campaignXp, setCampaignXp] = useState<number>(0);
 
   useEffect(() => {
+    if (authLoading) return; // wait for auth state to be determined
+    
     async function load() {
       try {
-        const meRes = await fetch('/api/auth/me');
-        const meData = await meRes.json();
-        setUserTier(meData.user?.subscriptionTier || 'free');
-        if (meData.user?.totalCoins != null) setCoins(meData.user.totalCoins);
-        if (meData.user?.campaignXp != null) setCampaignXp(meData.user.campaignXp);
+        if (session?.user) {
+          // User is logged in — fetch their data with auth token
+          const meRes = await authFetch('/api/auth/me', session);
+          const meData = await meRes.json();
+          setUserTier(meData.user?.subscriptionTier || 'free');
+          if (meData.user?.totalCoins != null) setCoins(meData.user.totalCoins);
+          if (meData.user?.campaignXp != null) setCampaignXp(meData.user.campaignXp);
+        } else {
+          // Guest — use defaults
+          setUserTier('free');
+          setCoins(null);
+          setCampaignXp(0);
+        }
 
-        const progRes = await fetch('/api/campaign/progress');
+        const progRes = await authFetch('/api/campaign/progress', session);
         if (progRes.ok) {
           const progData = await progRes.json();
           setProgress(progData.progress || []);
+        }
+        
+        // Show welcome toast if redirected from login
+        if (typeof window !== 'undefined') {
+          const urlParams = new URLSearchParams(window.location.search);
+          const fromLogin = urlParams.get('from');
+          if (fromLogin === 'login' && session?.user) {
+            const name = session.user.user_metadata?.username ?? 'there';
+            toast.success(`Welcome back, ${name}!`);
+            router.replace('/campaign'); // remove the query param
+          }
         }
       } catch {
         toast.error('Failed to load campaign data');
@@ -121,7 +145,7 @@ export default function CampaignPage() {
       }
     }
     load();
-  }, []);
+  }, [authLoading, session]);
 
   const getChamberProgress = (chamberId: string) =>
     progress.find((p) => p.chamberId === chamberId);
@@ -168,6 +192,31 @@ export default function CampaignPage() {
                 <Badge className="bg-yellow-500/20 text-yellow-300 border-yellow-500/30 text-xs">
                   <Crown className="w-3 h-3 mr-1" /> Pro
                 </Badge>
+              )}
+              
+              {/* Auth state */}
+              {session?.user ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-white/50 text-xs hidden sm:block">
+                    {session.user.user_metadata?.username ?? session.user.email?.split('@')[0]}
+                  </span>
+                  <button
+                    onClick={async () => {
+                      await fetch('/api/auth/logout', { method: 'POST' });
+                      router.push('/auth/login');
+                    }}
+                    className="text-white/30 hover:text-white text-xs transition-colors"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  href="/auth/login"
+                  className="text-xs px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                >
+                  Sign in
+                </Link>
               )}
             </div>
           </div>
@@ -339,10 +388,11 @@ export default function CampaignPage() {
                       );
 
                       // Wrap in Link if not locked
+                      const chamberHref = `/campaign/chamber/${chamber.id}`;
                       return chamberLocked ? (
                         <div key={chamber.id}>{node}</div>
                       ) : (
-                        <Link key={chamber.id} href={bossHref} className="flex items-center">
+                        <Link key={chamber.id} href={chamberHref} className="flex items-center">
                           {node}
                         </Link>
                       );

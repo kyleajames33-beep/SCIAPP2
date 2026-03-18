@@ -10,6 +10,8 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Beaker, UserPlus, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { supabase } from '@/lib/supabase';
+import { migrateGuestProgress } from '@/lib/migrate-guest-progress';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -62,8 +64,38 @@ export default function RegisterPage() {
         throw new Error(data.error || 'Registration failed');
       }
 
-      toast.success('Account created successfully!');
-      router.push('/hub');
+      // Auto-login after successful registration
+      const loginRes = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, password: formData.password }),
+      });
+
+      if (loginRes.ok) {
+        // Trigger migration then redirect
+        const { data: { session: newSession } } = await supabase.auth.getSession();
+        if (newSession) {
+          try {
+            const migrated = await migrateGuestProgress(newSession);
+            if (migrated > 0) {
+              toast.success(`Your guest progress has been saved to your account!`);
+            } else {
+              toast.success('Account created and logged in successfully!');
+            }
+          } catch (migrationError) {
+            console.error('[REGISTER PAGE] Migration failed:', migrationError);
+            toast.success('Account created and logged in successfully!'); // Don't show migration error to user
+          }
+        } else {
+          console.warn('[REGISTER PAGE] No session found after auto-login');
+          toast.success('Account created and logged in successfully!');
+        }
+        router.push('/campaign?from=register');
+      } else {
+        // Login failed after register — send to login page
+        toast.success('Account created! Please sign in.');
+        router.push('/auth/login?registered=true');
+      }
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Registration failed');

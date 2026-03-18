@@ -34,7 +34,10 @@
       "Bash(vercel pull --yes)",
       "Bash(vercel --prod --yes)",
       "Bash(vercel inspect sciapp-4.vercel.app)",
-      "Bash(vercel ls sciapp-4 --yes)"
+      "Bash(vercel ls sciapp-4 --yes)",
+      "Bash(npm list phaser)",
+      "Bash(npm run dev)",
+      "Bash(npx tsc --noEmit --skipLibCheck app/campaign/boss/[bossId]/page.tsx app/campaign/page.tsx app/campaign/boss/_components/*.tsx)"
     ]
   }
 }

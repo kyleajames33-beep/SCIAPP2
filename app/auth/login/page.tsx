@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,8 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Beaker, LogIn, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { supabase } from '@/lib/supabase';
+import { migrateGuestProgress } from '@/lib/migrate-guest-progress';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,6 +20,13 @@ export default function LoginPage() {
     email: '',
     password: '',
   });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('registered')) {
+      toast.success('Account created! Please sign in.');
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,9 +49,28 @@ export default function LoginPage() {
         throw new Error(data.error || 'Login failed');
       }
 
-      console.log('[LOGIN PAGE] Login successful, redirecting to hub');
-      toast.success(`Welcome back, ${data.displayName}!`);
-      router.push('/hub');
+      console.log('[LOGIN PAGE] Login successful, redirecting to campaign');
+      
+      // Get the session from Supabase client (it was set by the login response)
+      const { data: { session: newSession } } = await supabase.auth.getSession();
+      if (newSession) {
+        try {
+          const migrated = await migrateGuestProgress(newSession);
+          if (migrated > 0) {
+            toast.success(`Progress migrated! ${migrated} chamber${migrated > 1 ? 's' : ''} saved.`);
+          } else {
+            toast.success(`Welcome back, ${data.displayName}!`);
+          }
+        } catch (migrationError) {
+          console.error('[LOGIN PAGE] Migration failed:', migrationError);
+          toast.success(`Welcome back, ${data.displayName}!`); // Don't show migration error to user
+        }
+      } else {
+        console.warn('[LOGIN PAGE] No session found after login');
+        toast.success(`Welcome back, ${data.displayName}!`);
+      }
+      
+      router.push('/campaign?from=login');
       router.refresh();
     } catch (error) {
       console.error('[LOGIN PAGE] Login error:', error);
