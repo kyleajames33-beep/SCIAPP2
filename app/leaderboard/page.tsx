@@ -26,7 +26,7 @@ import {
   User,
 } from "lucide-react";
 import { toast } from "sonner";
-import { getRankByXP, formatXP, Rank } from "@/lib/rank-system";
+import { getRankByXP, formatXP, Rank } from "@/lib/ranks";
 import { useSupabaseAuth } from "@/app/auth/supabase-provider";
 import { authFetch } from "@/lib/auth-fetch";
 

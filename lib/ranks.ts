@@ -62,3 +62,39 @@ export function checkRankUp(
     newRank,
   };
 }
+
+/** Format XP with commas (compatibility with rank-system.ts) */
+export function formatXP(xp: number): string {
+  return new Intl.NumberFormat().format(xp);
+}
+
+/** Get rank by XP (alias for getRank, compatibility with rank-system.ts) */
+export function getRankByXP(xp: number): Rank {
+  return getRank(xp);
+}
+
+/** Get comprehensive rank info (compatibility with rank-system.ts) */
+export interface RankInfo {
+  currentRank: Rank;
+  nextRank: Rank | null;
+  currentXP: number;
+  xpProgress: number;
+  xpToNextRank: number;
+  isMaxRank: boolean;
+}
+
+export function getRankInfo(totalXP: number): RankInfo {
+  const currentRank = getRank(totalXP);
+  const nextRank = getNextRank(totalXP);
+  const xpProgress = getRankProgress(totalXP);
+  const xpToNextRank = nextRank ? nextRank.minXp - totalXP : 0;
+  
+  return {
+    currentRank,
+    nextRank,
+    currentXP: totalXP,
+    xpProgress,
+    xpToNextRank,
+    isMaxRank: nextRank === null,
+  };
+}

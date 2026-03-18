@@ -28,7 +28,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
-import { getRankInfo, formatXP, RankInfo } from "@/lib/rank-system";
+import { getRankInfo, formatXP, RankInfo } from "@/lib/ranks";
 import { useSupabaseAuth } from "@/app/auth/supabase-provider";
 import { authFetch } from "@/lib/auth-fetch";
 
