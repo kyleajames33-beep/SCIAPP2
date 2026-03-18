@@ -1,97 +1,111 @@
-// import { NextResponse } from 'next/server'
-// import { prisma } from '@/lib/db'
-// import { getSessionUser } from '@/lib/auth'
-// import { getRankInfo } from '@/lib/rank-system'
+import { NextRequest } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json' },
-  })
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
-export async function GET() {
-  console.log('[PROFILE] DISABLED - Using Supabase')
-  return json({ error: 'Feature temporarily disabled during migration' }, 503)
-  
-  /*
-  try {
-    const user = await getSessionUser()
+export async function GET(request: NextRequest) {
+  // Check auth via auth-me edge function
+  const authHeader = request.headers.get("authorization") || "";
+  let user: { id: string; email: string } | null = null;
 
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      )
+  try {
+    const authRes = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/auth-me`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: authHeader,
+        },
+      }
+    );
+    const authData = await authRes.json();
+    if (!authData.isGuest && authData.id) {
+      user = { id: authData.id, email: authData.email };
+    }
+  } catch (error) {
+    console.error('[PROFILE] Auth check failed:', error);
+  }
+
+  // Guest users get 401
+  if (!user) {
+    return json({ error: 'Not authenticated' }, 401);
+  }
+
+  const db = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+
+  try {
+    // Get user data
+    const { data: userData, error: userError } = await db
+      .from('User')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (userError) {
+      console.error('[PROFILE] User query error:', userError);
+      return json({ error: 'User not found' }, 404);
     }
 
-    // Get recent game history
-    const recentGames = await prisma.gameSession.findMany({
-      where: {
-        userId: user.id,
-        isCompleted: true,
-      },
-      orderBy: { completedAt: 'desc' },
-      take: 20,
-      select: {
-        id: true,
-        gameMode: true,
-        score: true,
-        correctAnswers: true,
-        incorrectAnswers: true,
-        maxStreak: true,
-        totalQuestions: true,
-        completedAt: true,
-      },
-    })
+    // Get recent boss attempts
+    const { data: recentGames, error: gamesError } = await db
+      .from('BossAttempt')
+      .select('*')
+      .eq('userId', user.id)
+      .order('createdAt', { ascending: false })
+      .limit(20);
 
-    // Get leaderboard positions
-    const leaderboardPositions = await prisma.$queryRaw`
-      SELECT 
-        "gameMode",
-        COUNT(*)::int as rank
-      FROM "LeaderboardEntry"
-      WHERE score > (
-        SELECT MAX(score) FROM "LeaderboardEntry" WHERE "userId" = ${user.id}
-      )
-      GROUP BY "gameMode"
-    ` as { gameMode: string; rank: number }[]
+    if (gamesError) {
+      console.error('[PROFILE] Games query error:', gamesError);
+    }
 
-    return NextResponse.json({
+    // Get campaign progress
+    const { data: progress, error: progressError } = await db
+      .from('CampaignProgress')
+      .select('*')
+      .eq('userId', user.id);
+
+    if (progressError) {
+      console.error('[PROFILE] Progress query error:', progressError);
+    }
+
+    return json({
       user: {
-        id: user.id,
-        username: user.username,
-        displayName: user.displayName,
-        email: user.email,
-        role: user.role,
-        totalCoins: user.totalCoins,
-        totalScore: user.totalScore,
-        gamesPlayed: user.gamesPlayed,
-        bestStreak: user.bestStreak,
-        prestigeLevel: user.prestigeLevel,
-        lifetimeEarnings: user.lifetimeEarnings,
+        id: userData.id,
+        username: userData.username,
+        email: userData.email,
+        totalScore: userData.totalScore ?? 0,
+        campaignXp: userData.campaignXp ?? 0,
+        gamesPlayed: userData.gamesPlayed ?? 0,
+        bestStreak: userData.bestStreak ?? 0,
+        totalCoins: userData.totalCoins ?? 0,
+        subscriptionTier: userData.subscriptionTier ?? 'free',
       },
-      recentGames: recentGames.map(game => ({
+      recentGames: (recentGames || []).map(game => ({
         id: game.id,
-        gameMode: game.gameMode,
-        score: game.score,
-        accuracy: game.correctAnswers + game.incorrectAnswers > 0
-          ? Math.round((game.correctAnswers / (game.correctAnswers + game.incorrectAnswers)) * 100)
-          : 0,
+        bossId: game.bossId,
+        victory: game.victory,
+        damageDealt: game.damageDealt,
+        questionsAnswered: game.questionsAnswered,
+        correctAnswers: game.correctAnswers,
         maxStreak: game.maxStreak,
-        totalQuestions: game.totalQuestions,
-        completedAt: game.completedAt?.toISOString(),
+        completedAt: game.createdAt,
       })),
-      leaderboardPositions,
-    })
+      progress: progress || [],
+    });
+
   } catch (error) {
-    console.error('Profile error:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch profile' },
-      { status: 500 }
-    )
+    console.error('[PROFILE] Database error:', error);
+    return json({ error: 'Internal server error' }, 500);
   }
-  */
 }

@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getRankInfo, formatXP, RankInfo } from "@/lib/rank-system";
+import { useSupabaseAuth } from "@/app/auth/supabase-provider";
+import { authFetch } from "@/lib/auth-fetch";
 
 // Boss data from bosses.json
 const BOSSES = [
@@ -74,6 +76,7 @@ interface GameSession {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { session } = useSupabaseAuth();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<UserData | null>(null);
   const [rankInfo, setRankInfo] = useState<RankInfo | null>(null);
@@ -83,8 +86,14 @@ export default function ProfilePage() {
   useEffect(() => {
     async function loadProfile() {
       try {
+        // Check authentication first
+        if (!session) {
+          router.push("/auth/login");
+          return;
+        }
+
         // Fetch user data
-        const userRes = await fetch("/api/auth/me");
+        const userRes = await authFetch("/api/auth/me", session);
         if (!userRes.ok) {
           router.push("/auth/login");
           return;
@@ -98,14 +107,14 @@ export default function ProfilePage() {
         }
 
         // Fetch campaign progress (includes boss attempts)
-        const progressRes = await fetch("/api/campaign/progress");
+        const progressRes = await authFetch("/api/campaign/progress", session);
         if (progressRes.ok) {
           const progressData = await progressRes.json();
           setBossAttempts(progressData.bossAttempts || []);
         }
 
         // Fetch recent games from profile API
-        const profileRes = await fetch("/api/profile");
+        const profileRes = await authFetch("/api/profile", session);
         if (profileRes.ok) {
           const profileData = await profileRes.json();
           setRecentGames(profileData.recentGames?.slice(0, 5) || []);

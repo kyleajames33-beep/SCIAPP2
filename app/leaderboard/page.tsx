@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getRankByXP, formatXP, Rank } from "@/lib/rank-system";
+import { useSupabaseAuth } from "@/app/auth/supabase-provider";
+import { authFetch } from "@/lib/auth-fetch";
 
 interface LeaderboardUser {
   rank: number;
@@ -296,6 +298,7 @@ function MyRankBar({
 
 export default function LeaderboardPage() {
   const router = useRouter();
+  const { session } = useSupabaseAuth();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>("global");
   const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
@@ -305,8 +308,14 @@ export default function LeaderboardPage() {
   useEffect(() => {
     async function loadLeaderboard() {
       try {
+        // Check authentication first
+        if (!session) {
+          router.push("/auth/login");
+          return;
+        }
+
         // Fetch current user
-        const userRes = await fetch("/api/auth/me");
+        const userRes = await authFetch("/api/auth/me", session);
         if (!userRes.ok) {
           router.push("/auth/login");
           return;
@@ -315,7 +324,7 @@ export default function LeaderboardPage() {
         setCurrentUser(userData.user);
 
         // Fetch leaderboard
-        const lbRes = await fetch("/api/leaderboard?type=campaign&limit=50");
+        const lbRes = await authFetch("/api/leaderboard?type=campaign&limit=50", session);
         if (lbRes.ok) {
           const lbData = await lbRes.json();
           setLeaderboard(lbData.users || []);
