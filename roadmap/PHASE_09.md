@@ -21,11 +21,11 @@ If you run out of context mid-phase, the next session must:
 
 | Sub-phase | Title                        | Status | Key files touched |
 |-----------|------------------------------|--------|-------------------|
-| 9.1       | Fix sound system             | ⬜     | app/campaign/boss/[bossId]/page.tsx, lib/sounds.ts |
-| 9.2       | Fix hub nav cards + CTA      | ⬜     | app/hub/page.tsx |
-| 9.3       | BattleTutorialModal          | ⬜     | app/campaign/boss/_components/BattleTutorialModal.tsx (new) |
-| 9.4       | handleRestartBattle          | ⬜     | app/campaign/boss/[bossId]/page.tsx |
-| 9.5       | BattleErrorBoundary          | ⬜     | app/campaign/boss/_components/BattleErrorBoundary.tsx (new) |
+| 9.1       | Fix sound system             | ✅     | app/campaign/boss/[bossId]/page.tsx, lib/sounds.ts |
+| 9.2       | Fix hub nav cards + CTA      | ✅     | app/hub/page.tsx |
+| 9.3       | BattleTutorialModal          | ✅     | app/campaign/boss/_components/BattleTutorialModal.tsx (new) |
+| 9.4       | handleRestartBattle          | ✅     | app/campaign/boss/[bossId]/page.tsx |
+| 9.5       | BattleErrorBoundary          | ✅     | app/campaign/boss/_components/BattleErrorBoundary.tsx (new), app/campaign/boss/[bossId]/layout.tsx (new) |
 | 9.6       | Minor polish                 | ⬜     | app/campaign/page.tsx, app/hub/page.tsx |
 | 9.7       | Checkpoint & smoke test      | ⬜     | — |
 

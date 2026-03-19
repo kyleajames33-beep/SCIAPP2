@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import { Question } from "@/lib/game-types";
 import { RankUpCelebration } from "../_components/RankUpCelebration";
+import { BattleTutorialModal, useBattleTutorial } from "../_components/BattleTutorialModal";
 import dynamic from "next/dynamic";
 import type { PhaserBattleSceneHandle } from "../_components/PhaserBattleScene";
 import BattleCharacter from "../_components/BattleCharacter";
@@ -27,7 +28,7 @@ import { playSound } from "@/lib/sounds";
 
 const PhaserBattleScene = dynamic(
   () => import("../_components/PhaserBattleScene"),
-  { ssr: false, loading: () => <div style={{ height: 260 }} /> }
+  { ssr: false, loading: () => <div style={{ height: 400 }} /> }
 );
 
 import { resolveBossId, handleBossNotFound } from "@/lib/boss-mapping";
@@ -37,6 +38,44 @@ import bossesData from "@/data/bosses.json";
 const BOSS_LOOKUP: Record<string, typeof bossesData.bosses[0]> = Object.fromEntries(
   bossesData.bosses.map((b) => [b.id, b])
 );
+
+// Boss → question chamberId (matches chamberId in Question table / local JSON)
+const BOSS_TO_CHAMBER: Record<string, string> = {
+  // Module 1 chamber bosses
+  'atomic-structure-boss': 'atomic-structure',
+  'periodic-table-boss':   'periodic-trends',
+  'chemical-bonding-boss': 'chemical-bonding',
+  'imf-boss':              'intermolecular-forces',
+  // Module 2 chamber bosses
+  'mole-concept-boss':     'the-mole-concept',
+  'stoichiometry-boss':    'chemical-reactions-stoichiometry',
+  'concentration-boss':    'concentration-molarity',
+  'gas-laws-boss':         'gas-laws',
+  // Module 3 chamber bosses (use boss-battle pool until M3 questions seeded)
+  'reaction-types-boss':   'boss-battle',
+  'reaction-rates-boss':   'boss-battle',
+  'energy-changes-boss':   'boss-battle',
+  // Module finale bosses — always use the universal boss-battle pool
+  'acid-baron':    'boss-battle',
+  'mole-master':   'boss-battle',
+  'reaction-king': 'boss-battle',
+};
+
+// Reverse map: boss ID → campaign chamber ID (for saving progress on win)
+const BOSS_TO_CAMPAIGN_CHAMBER: Record<string, string> = {
+  'atomic-structure-boss': 'm1-c1',
+  'periodic-table-boss':   'm1-c2',
+  'chemical-bonding-boss': 'm1-c3',
+  'imf-boss':              'm1-c4',
+  'mole-concept-boss':     'm2-c1',
+  'stoichiometry-boss':    'm2-c2',
+  'concentration-boss':    'm2-c3',
+  'gas-laws-boss':         'm2-c4',
+  'reaction-types-boss':   'm3-c1',
+  'reaction-rates-boss':   'm3-c2',
+  'energy-changes-boss':   'm3-c3',
+  // Module finale bosses have no chamber to mark — omitted intentionally
+};
 
 type BossPhase = "intro" | "combat" | "victory" | "defeat";
 type PlayerSprite = "idle" | "attack" | "hurt";
@@ -73,6 +112,7 @@ export default function BossBattleClient() {
   const params = useParams();
   const router = useRouter();
   const { session } = useSupabaseAuth();
+  const { showTutorial, dismissTutorial } = useBattleTutorial();
   const bossId = (params?.bossId as string) ?? "";
   const questionSetId =
     typeof window !== "undefined"
@@ -181,9 +221,17 @@ export default function BossBattleClient() {
       enraged: false,
     });
 
-    // Boss battles always fetch from the full question pool — no questionSetId filter
-    // (DB has questionSetId=null on all questions; proper seeding is Phase 3)
-    fetch(`/api/questions?count=15`)
+    // Load saved character choice (so modal doesn't re-appear every battle)
+    authFetch("/api/user/character", session)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.characterChoice) setCharacterChoice(d.characterChoice);
+      })
+      .catch(() => {});
+
+    // Fetch questions specific to this boss/chamber
+    const chamberId = BOSS_TO_CHAMBER[resolvedBossId] || 'boss-battle';
+    fetch(`/api/questions?chamberId=${chamberId}&count=15`)
       .then((res) => res.json())
       .then((d) => {
         setQuestions(d.questions || []);
@@ -462,6 +510,52 @@ export default function BossBattleClient() {
     setBoss(prev => prev ? { ...prev, phase: "victory", currentHp: 0 } : null);
     playSound("level_up");
     submitBossAttempt(true);
+
+    // If this is a chamber boss, mark the chamber complete in CampaignProgress
+    const campaignChamberId = BOSS_TO_CAMPAIGN_CHAMBER[resolvedBossId ?? bossId];
+    if (campaignChamberId) {
+      authFetch("/api/campaign/progress", session, {
+        method: "POST",
+        body: JSON.stringify({ chamberId: campaignChamberId, worldId: campaignChamberId.slice(0, 2) === 'm1' ? 'module-1' : campaignChamberId.slice(0, 2) === 'm2' ? 'module-2' : 'module-3', xpEarned: 0 }),
+      }).catch(() => {}); // fire-and-forget, rewards already handled by submitBossAttempt
+    }
+  };
+
+  const handleRestartBattle = () => {
+    // Clear all timers
+    battleActiveRef.current = false;
+    if (bossChargeIntervalRef.current) clearInterval(bossChargeIntervalRef.current);
+    if (shieldExpiryTimerRef.current) clearTimeout(shieldExpiryTimerRef.current);
+    bossAttackingRef.current = false;
+
+    // Reset all battle state
+    if (bossJsonData) {
+      setBoss({
+        id: resolvedBossId ?? bossId,
+        name: bossJsonData.name,
+        maxHp: bossJsonData.baseHp,
+        currentHp: bossJsonData.baseHp,
+        phase: "intro",
+        enraged: false,
+      });
+    }
+    setPlayerHp(100);
+    updatePlayerEnergy(0);
+    setBossCharge(0);
+    setCurrentStreak(0);
+    setWrongStreak(0);
+    updateShieldActive(false);
+    setShieldCooldown(false);
+    setHeroState("idle");
+    setBossState("idle");
+    setRewards(null);
+    setStats({ damageDealt: 0, questionsAnswered: 0, correctAnswers: 0, streak: 0, maxStreak: 0 });
+    setCurrentQuestionIndex(0);
+    setSelectedAnswer(null);
+    setIsAnswered(false);
+    setEliminatedOptions([]);
+    // Reshuffle questions
+    setQuestions(prev => [...prev].sort(() => Math.random() - 0.5));
   };
 
   // Per BATTLE_SPEC.md §2 — damage scales with energy at time of hit
@@ -534,6 +628,7 @@ export default function BossBattleClient() {
       className="h-screen flex flex-col overflow-hidden"
       style={{ background: "#0a0a14" }}
     >
+      {showTutorial && <BattleTutorialModal onDismiss={dismissTutorial} />}
       <style>{`
         @keyframes floatUp {
           0%   { opacity: 1; transform: translateY(0px) scale(1); }
@@ -754,7 +849,7 @@ export default function BossBattleClient() {
           <div className="absolute inset-0" style={{ zIndex: 3, pointerEvents: "none" }}>
             <PhaserBattleScene
               width={typeof window !== "undefined" ? Math.min(600, window.innerWidth - 32) : 600}
-              height={280}
+              height={400}
               onReady={(handle) => { (phaserRef as any).current = handle; }}
             />
           </div>
@@ -1019,7 +1114,7 @@ export default function BossBattleClient() {
                   Return to Map
                 </Button>
                 <Button
-                  onClick={() => window.location.reload()}
+                  onClick={handleRestartBattle}
                   className="bg-red-600 hover:bg-red-700"
                 >
                   Try Again

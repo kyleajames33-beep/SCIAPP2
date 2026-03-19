@@ -14,27 +14,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Rank progression based on campaignXp
-const RANKS = [
-  { name: 'Hydrogen', minXp: 0, color: 'text-gray-400', bg: 'bg-gray-500/20' },
-  { name: 'Helium', minXp: 100, color: 'text-blue-300', bg: 'bg-blue-500/20' },
-  { name: 'Lithium', minXp: 300, color: 'text-red-300', bg: 'bg-red-500/20' },
-  { name: 'Carbon', minXp: 600, color: 'text-gray-300', bg: 'bg-gray-600/20' },
-  { name: 'Nitrogen', minXp: 1000, color: 'text-blue-400', bg: 'bg-blue-600/20' },
-  { name: 'Oxygen', minXp: 1500, color: 'text-red-400', bg: 'bg-red-600/20' },
-  { name: 'Sodium', minXp: 2500, color: 'text-yellow-300', bg: 'bg-yellow-500/20' },
-  { name: 'Iron', minXp: 4000, color: 'text-orange-400', bg: 'bg-orange-500/20' },
-  { name: 'Gold', minXp: 6000, color: 'text-yellow-400', bg: 'bg-yellow-600/20' },
-  { name: 'Platinum', minXp: 10000, color: 'text-purple-300', bg: 'bg-purple-500/20' },
-];
-
-function getRank(xp: number) {
-  let rank = RANKS[0];
-  for (const r of RANKS) {
-    if (xp >= r.minXp) rank = r;
-  }
-  return rank;
-}
+import { getRank, getNextRank, getRankProgress } from '@/lib/ranks';
+import { useSupabaseAuth } from '@/app/auth/supabase-provider';
+import { authFetch } from '@/lib/auth-fetch';
 
 interface HubUser {
   id: string;
@@ -71,7 +53,7 @@ const NAV_CARDS = [
     gradient: 'from-red-500 to-pink-600',
     borderColor: 'border-red-400/40',
     badge: 'PvP',
-    disabled: false,
+    disabled: true,
   },
   {
     id: 'training',
@@ -95,7 +77,7 @@ const NAV_CARDS = [
     gradient: 'from-purple-500 to-violet-600',
     borderColor: 'border-purple-400/40',
     badge: 'Store',
-    disabled: false,
+    disabled: true,
   },
 ];
 
@@ -114,13 +96,14 @@ const cardVariants = {
 
 export default function HubPage() {
   const router = useRouter();
+  const { session } = useSupabaseAuth();
   const [user, setUser] = useState<HubUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchUser() {
       try {
-        const res = await fetch('/api/auth/me');
+        const res = await authFetch('/api/auth/me', session);
         if (!res.ok) {
           router.push('/auth/login');
           return;
@@ -134,7 +117,7 @@ export default function HubPage() {
       }
     }
     fetchUser();
-  }, [router]);
+  }, [router, session]);
 
   const handleLogout = async () => {
     try {
@@ -156,10 +139,8 @@ export default function HubPage() {
   if (!user) return null;
 
   const rank = getRank(user.campaignXp || 0);
-  const nextRank = RANKS.find((r) => r.minXp > (user.campaignXp || 0));
-  const xpProgress = nextRank
-    ? ((user.campaignXp || 0) - rank.minXp) / (nextRank.minXp - rank.minXp)
-    : 1;
+  const nextRank = getNextRank(user.campaignXp || 0);
+  const xpProgress = getRankProgress(user.campaignXp || 0) / 100;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -181,9 +162,9 @@ export default function HubPage() {
             </div>
 
             {/* Rank Badge */}
-            <div className={`flex items-center gap-1.5 ${rank.bg} border border-white/10 rounded-full px-3 py-1`}>
-              <Star className="w-4 h-4" />
-              <span className={`font-semibold text-sm ${rank.color}`}>{rank.name}</span>
+            <div className="flex items-center gap-1.5 border border-white/10 rounded-full px-3 py-1" style={{ backgroundColor: `${rank.color}22` }}>
+              <Star className="w-4 h-4" style={{ color: rank.color }} />
+              <span className="font-semibold text-sm" style={{ color: rank.color }}>{rank.symbol} {rank.name}</span>
             </div>
 
             {/* Profile */}
@@ -219,7 +200,7 @@ export default function HubPage() {
             <div className="max-w-md mx-auto mt-4">
               <div className="flex justify-between text-xs text-white/50 mb-1">
                 <span>{rank.name}</span>
-                <span>{nextRank.name} — {nextRank.minXp - (user.campaignXp || 0)} XP to go</span>
+                <span>{nextRank ? `${nextRank.name} — ${nextRank.minXp - (user.campaignXp || 0)} XP to go` : 'Max Rank'}</span>
               </div>
               <div className="w-full bg-white/10 rounded-full h-2">
                 <motion.div
@@ -232,6 +213,21 @@ export default function HubPage() {
             </div>
           )}
         </div>
+
+        {/* Primary CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="max-w-sm mx-auto mb-8"
+        >
+          <Link
+            href="/campaign"
+            className="block w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xl font-bold text-center shadow-lg transition-all hover:scale-105 active:scale-95"
+          >
+            Play Campaign
+          </Link>
+        </motion.div>
 
         {/* Navigation Cards Grid */}
         <motion.div
@@ -256,9 +252,11 @@ export default function HubPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="text-xl font-bold text-white">{card.title}</h3>
-                          <Badge className="bg-white/10 text-white/70 border-white/20 text-xs">
-                            {card.badge}
-                          </Badge>
+                          {card.disabled ? (
+                            <Badge className="bg-white/5 text-white/30 border-white/10 text-xs">Coming Soon</Badge>
+                          ) : (
+                            <Badge className="bg-white/10 text-white/70 border-white/20 text-xs">{card.badge}</Badge>
+                          )}
                         </div>
                         <p className="text-white/50 text-xs mb-2">{card.subtitle}</p>
                         <p className="text-white/70 text-sm">{card.description}</p>
