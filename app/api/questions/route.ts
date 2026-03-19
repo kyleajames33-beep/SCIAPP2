@@ -5,17 +5,17 @@ export const dynamic = 'force-dynamic'
 
 // Mapping from campaign chamber IDs to question chamber IDs
 const CHAMBER_CONFIG: Record<string, string> = {
-  'm1-c1': 'atomic-structure-and-periodicity',
-  'm1-c2': 'chemical-bonding', 
-  'm1-c3': 'intermolecular-forces',
-  'm1-c4': 'states-of-matter',
+  'm1-c1': 'atomic-structure',
+  'm1-c2': 'periodic-trends',
+  'm1-c3': 'chemical-bonding', 
+  'm1-c4': 'intermolecular-forces',
   'm2-c1': 'the-mole-concept',
-  'm2-c2': 'stoichiometry',
-  'm2-c3': 'concentration-calculations', 
+  'm2-c2': 'chemical-reactions-stoichiometry',
+  'm2-c3': 'concentration-molarity', 
   'm2-c4': 'gas-laws',
-  'm3-c1': 'reaction-types',
-  'm3-c2': 'reaction-rates',
-  'm3-c3': 'energy-changes-in-reactions',
+  'm3-c1': 'm3-c1',
+  'm3-c2': 'm3-c1', // Using same questions for now
+  'm3-c3': 'm3-c1', // Using same questions for now
 };
 
 export async function GET(request: Request) {

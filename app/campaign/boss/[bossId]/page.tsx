@@ -23,6 +23,7 @@ import BattleCharacter from "../_components/BattleCharacter";
 import CharacterSelectModal from "../_components/CharacterSelectModal";
 import { useSupabaseAuth } from "@/app/auth/supabase-provider";
 import { authFetch } from "@/lib/auth-fetch";
+import { playSound } from "@/lib/sounds";
 
 const PhaserBattleScene = dynamic(
   () => import("../_components/PhaserBattleScene"),
@@ -67,11 +68,6 @@ interface DamagePopup {
   value: number;
 }
 
-function playSound(name: "correct" | "wrong" | "boss_hit" | "level_up" | "coin") {
-  const audio = new Audio(`/sounds/${name}.mp3`);
-  audio.volume = 0.4;
-  audio.play().catch(() => {});
-}
 
 export default function BossBattleClient() {
   const params = useParams();
@@ -627,7 +623,7 @@ export default function BossBattleClient() {
 
         {/* HP bars */}
         {/* Boss HP bar — top left */}
-        <div className="absolute top-4 left-4 z-10" style={{ width: "42%" }}>
+        <div className="absolute top-4 left-4 z-10 w-[40%] sm:w-[42%]">
           <div className="flex items-center justify-between mb-1">
             <span className="text-white font-bold text-sm truncate">{boss.name}</span>
             {boss.enraged && (
@@ -669,7 +665,7 @@ export default function BossBattleClient() {
         </div>
 
         {/* Player HP bar — top right */}
-        <div className="absolute top-4 right-4 z-10" style={{ width: "42%" }}>
+        <div className="absolute top-4 right-4 z-10 w-[40%] sm:w-[42%]">
           <div className="flex items-center justify-between mb-1">
             <span className="text-white font-bold text-sm">You</span>
             {stats.streak > 1 && (
@@ -699,7 +695,7 @@ export default function BossBattleClient() {
 
         {/* Player energy bar */}
         {boss.phase === "combat" && (
-          <div className="absolute z-10" style={{ top: "4.5rem", right: "1rem", width: "42%" }}>
+          <div className="absolute z-10 top-[4.5rem] right-4 w-[40%] sm:w-[42%]">
             <div className="flex items-center justify-between mb-0.5">
               <span className="text-blue-400 text-xs font-mono">ENERGY</span>
               <span className="text-blue-400 text-xs font-mono">{Math.floor(playerEnergy)}</span>
@@ -757,7 +753,7 @@ export default function BossBattleClient() {
           {/* Phaser canvas — particles and damage numbers only */}
           <div className="absolute inset-0" style={{ zIndex: 3, pointerEvents: "none" }}>
             <PhaserBattleScene
-              width={600}
+              width={typeof window !== "undefined" ? Math.min(600, window.innerWidth - 32) : 600}
               height={280}
               onReady={(handle) => { (phaserRef as any).current = handle; }}
             />
@@ -1005,9 +1001,19 @@ export default function BossBattleClient() {
               <p className="text-gray-400 text-sm mb-4">
                 {boss.name} has prevailed... for now.
               </p>
-              <div className="text-xs text-gray-500 mb-5">
+              <div className="text-xs text-gray-500 mb-3">
                 Damage dealt: {stats.damageDealt} · Boss HP remaining: {boss.currentHp}
               </div>
+              {rewards && (
+                <div className="bg-gray-800/50 rounded-lg p-4 mb-4 text-center">
+                  <h3 className="text-sm font-medium text-gray-300 mb-2">Partial Rewards Earned</h3>
+                  <div className="flex justify-center gap-4 text-sm">
+                    <span className="text-blue-400">+{rewards.xp} XP</span>
+                    <span className="text-yellow-400">+{rewards.coins} Coins</span>
+                    {rewards.gems > 0 && <span className="text-purple-400">+{rewards.gems} Gems</span>}
+                  </div>
+                </div>
+              )}
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => router.push("/campaign")}>
                   Return to Map

@@ -37,7 +37,18 @@
       "Bash(vercel ls sciapp-4 --yes)",
       "Bash(npm list phaser)",
       "Bash(npm run dev)",
-      "Bash(npx tsc --noEmit --skipLibCheck app/campaign/boss/[bossId]/page.tsx app/campaign/page.tsx app/campaign/boss/_components/*.tsx)"
+      "Bash(npx tsc --noEmit --skipLibCheck app/campaign/boss/[bossId]/page.tsx app/campaign/page.tsx app/campaign/boss/_components/*.tsx)",
+      "Bash(npx tsc --noEmit --skipLibCheck app/api/profile/route.ts app/leaderboard/page.tsx app/profile/page.tsx)",
+      "Bash(npx tsc --noEmit --skipLibCheck lib/ranks.ts app/profile/page.tsx app/leaderboard/page.tsx)",
+      "WebFetch(domain:github.com)",
+      "Bash(npx tsc --noEmit --skipLibCheck app/api/questions/route.ts)",
+      "Bash(python -m json.tool)",
+      "Bash(npx tsc --noEmit --skipLibCheck)",
+      "Bash(npx tsc --noEmit --skipLibCheck app/api/campaign/progress/route.ts app/campaign/chamber/[chamberId]/page.tsx app/campaign/boss/[bossId]/page.tsx)",
+      "Bash(npx tsc --noEmit --skipLibCheck app/campaign/page.tsx app/api/questions/route.ts data/bosses.json)",
+      "Bash(npx tsc --noEmit --skipLibCheck app/campaign/page.tsx app/api/questions/route.ts)",
+      "Bash(npx tsc --noEmit --skipLibCheck app/campaign/boss/[bossId]/page.tsx app/campaign/chamber/[chamberId]/page.tsx)",
+      "Bash(npx tsc --noEmit --skipLibCheck app/campaign/boss/[bossId]/page.tsx)"
     ]
   }
 }

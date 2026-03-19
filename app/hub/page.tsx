@@ -83,7 +83,7 @@ const NAV_CARDS = [
     gradient: 'from-blue-500 to-cyan-600',
     borderColor: 'border-blue-400/40',
     badge: 'Solo',
-    disabled: false,
+    disabled: true,
   },
   {
     id: 'shop',

@@ -424,6 +424,114 @@
         { "hpThreshold": 0.6, "speedMultiplier": 1.25 },
         { "hpThreshold": 0.25, "speedMultiplier": 1.55 }
       ]
+    },
+    {
+      "id": "mole-master",
+      "name": "The Mole Master",
+      "elementalType": "Quantitative",
+      "description": "Overlord of moles, molarity, and stoichiometric calculations",
+      "baseHp": 1100,
+      "chargeTime": 16,
+      "images": {
+        "idle": "/images/characters/boss-acid-baron-idle.png",
+        "attack": "/images/characters/boss-acid-baron-attack.png",
+        "hurt": "/images/characters/boss-acid-baron-hurt.png"
+      },
+      "arenaBackground": "/backgrounds/arena-mole-master.png",
+      "themeColor": "#3b82f6",
+      "particleColors": ["#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe"],
+      "specialMoves": [
+        {
+          "id": "avogadro-assault",
+          "name": "Avogadro's Assault",
+          "description": "Overwhelms with 6.022×10²³ particle projectiles",
+          "effect": "burn",
+          "damage": 40,
+          "duration": 3,
+          "cooldown": 4,
+          "intent": "attack"
+        },
+        {
+          "id": "molarity-maze",
+          "name": "Molarity Maze",
+          "description": "Confuses with complex concentration calculations",
+          "effect": "stun",
+          "damage": 25,
+          "duration": 2,
+          "cooldown": 4,
+          "intent": "debuff"
+        },
+        {
+          "id": "stoichiometric-shield",
+          "name": "Stoichiometric Shield",
+          "description": "Perfect mole ratio creates balanced defense",
+          "effect": "defense",
+          "damage": 0,
+          "duration": 3,
+          "cooldown": 6,
+          "intent": "defend"
+        }
+      ],
+      "enrageThreshold": 0.3,
+      "phases": [
+        { "hpThreshold": 1.0, "speedMultiplier": 1.0 },
+        { "hpThreshold": 0.6, "speedMultiplier": 1.3 },
+        { "hpThreshold": 0.25, "speedMultiplier": 1.6 }
+      ]
+    },
+    {
+      "id": "reaction-king",
+      "name": "The Reaction King",
+      "elementalType": "Kinetics",
+      "description": "Sovereign of reaction types, rates, and energy changes",
+      "baseHp": 1200,
+      "chargeTime": 18,
+      "images": {
+        "idle": "/images/characters/boss-acid-baron-idle.png",
+        "attack": "/images/characters/boss-acid-baron-attack.png",
+        "hurt": "/images/characters/boss-acid-baron-hurt.png"
+      },
+      "arenaBackground": "/backgrounds/arena-reaction-king.png",
+      "themeColor": "#ef4444",
+      "particleColors": ["#ef4444", "#f87171", "#fca5a5", "#fee2e2"],
+      "specialMoves": [
+        {
+          "id": "combustion-blast",
+          "name": "Combustion Blast",
+          "description": "Explosive exothermic reaction dealing massive damage",
+          "effect": "burn",
+          "damage": 60,
+          "duration": 2,
+          "cooldown": 5,
+          "intent": "attack"
+        },
+        {
+          "id": "catalyst-corruption",
+          "name": "Catalyst Corruption",
+          "description": "Poisons your catalysts, slowing all reactions",
+          "effect": "corrosion",
+          "damage": 30,
+          "duration": 4,
+          "cooldown": 4,
+          "intent": "debuff"
+        },
+        {
+          "id": "equilibrium-fortress",
+          "name": "Le Chatelier's Fortress",
+          "description": "Dynamic equilibrium provides adaptive defense",
+          "effect": "defense",
+          "damage": 0,
+          "duration": 2,
+          "cooldown": 5,
+          "intent": "defend"
+        }
+      ],
+      "enrageThreshold": 0.25,
+      "phases": [
+        { "hpThreshold": 1.0, "speedMultiplier": 1.0 },
+        { "hpThreshold": 0.55, "speedMultiplier": 1.4 },
+        { "hpThreshold": 0.22, "speedMultiplier": 1.8 }
+      ]
     }
   ]
 }

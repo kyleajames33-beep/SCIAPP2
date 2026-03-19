@@ -226,7 +226,7 @@ export default function ProfilePage() {
                           boxShadow: `0 0 20px ${rankInfo.currentRank.color}80`
                         }}
                       >
-                        {rankInfo.currentRank.badge}
+                        {rankInfo.currentRank.symbol}
                       </motion.div>
                     )}
                   </motion.div>
@@ -259,8 +259,8 @@ export default function ProfilePage() {
                       <div className="max-w-md mx-auto md:mx-0">
                         <div className="flex justify-between text-sm mb-1">
                           <span className="text-white/50">
-                            {formatXP(rankInfo.currentXP - rankInfo.currentRank.minXP)} /{" "}
-                            {formatXP((rankInfo.nextRank?.minXP || rankInfo.currentRank.minXP) - rankInfo.currentRank.minXP)} XP
+                            {formatXP(rankInfo.currentXP - rankInfo.currentRank.minXp)} /{" "}
+                            {formatXP((rankInfo.nextRank?.minXp || rankInfo.currentRank.minXp) - rankInfo.currentRank.minXp)} XP
                           </span>
                           <span className="text-purple-400">
                             {rankInfo.isMaxRank ? "MAX RANK" : `${Math.round(rankInfo.xpProgress)}%`}
@@ -500,7 +500,7 @@ export default function ProfilePage() {
                     </div>
                     <div>
                       <h3 className="text-2xl font-bold text-white">{rankInfo.currentRank.name} Rank</h3>
-                      <p className="text-white/50">Element: {rankInfo.currentRank.element}</p>
+                      <p className="text-white/50">Element: {rankInfo.currentRank.symbol}</p>
                     </div>
                   </div>
 

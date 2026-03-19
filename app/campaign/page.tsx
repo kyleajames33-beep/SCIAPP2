@@ -64,13 +64,13 @@ const WORLDS = [
     subtitle: 'Introduction to Quantitative Chemistry',
     description: 'Moles, stoichiometry, concentrations, and gas laws.',
     chambers: [
-      { id: 'm2-c1', name: 'The Mole', free: false },
-      { id: 'm2-c2', name: 'Stoichiometry', free: false },
-      { id: 'm2-c3', name: 'Concentration', free: false },
-      { id: 'm2-c4', name: 'Gas Laws', free: false },
+      { id: 'm2-c1', name: 'The Mole', free: true },
+      { id: 'm2-c2', name: 'Stoichiometry', free: true },
+      { id: 'm2-c3', name: 'Concentration', free: true },
+      { id: 'm2-c4', name: 'Gas Laws', free: true },
     ],
     boss: { id: 'mole-master', name: 'Mole Master' },
-    free: false,
+    free: true,
   },
   {
     id: 'module-3',
@@ -78,12 +78,12 @@ const WORLDS = [
     subtitle: 'Reactive Chemistry',
     description: 'Types of reactions, rates, and energy changes.',
     chambers: [
-      { id: 'm3-c1', name: 'Reaction Types', free: false },
-      { id: 'm3-c2', name: 'Reaction Rates', free: false },
-      { id: 'm3-c3', name: 'Energy Changes', free: false },
+      { id: 'm3-c1', name: 'Reaction Types', free: true },
+      { id: 'm3-c2', name: 'Reaction Rates', free: true },
+      { id: 'm3-c3', name: 'Energy Changes', free: true },
     ],
     boss: { id: 'reaction-king', name: 'Reaction King' },
-    free: false,
+    free: true,
   },
 ];
 

@@ -22,18 +22,32 @@ interface Question {
 
 // Mapping from campaign chamber IDs to question chamber IDs
 const CHAMBER_CONFIG: Record<string, string> = {
-  'm1-c1': 'atomic-structure-and-periodicity',
-  'm1-c2': 'chemical-bonding',
-  'm1-c3': 'intermolecular-forces', 
-  'm1-c4': 'states-of-matter',
+  'm1-c1': 'atomic-structure',
+  'm1-c2': 'periodic-trends',
+  'm1-c3': 'chemical-bonding', 
+  'm1-c4': 'intermolecular-forces',
+  'm2-c1': 'the-mole-concept',
+  'm2-c2': 'chemical-reactions-stoichiometry',
+  'm2-c3': 'concentration-molarity', 
+  'm2-c4': 'gas-laws',
+  'm3-c1': 'm3-c1',
+  'm3-c2': 'm3-c1',
+  'm3-c3': 'm3-c1',
 };
 
 // Chamber display names
 const CHAMBER_NAMES: Record<string, string> = {
   'm1-c1': 'Atomic Structure',
-  'm1-c2': 'Periodic Table', 
+  'm1-c2': 'Periodic Trends', 
   'm1-c3': 'Chemical Bonding',
-  'm1-c4': 'IMF',
+  'm1-c4': 'Intermolecular Forces',
+  'm2-c1': 'The Mole',
+  'm2-c2': 'Stoichiometry',
+  'm2-c3': 'Concentration', 
+  'm2-c4': 'Gas Laws',
+  'm3-c1': 'Reaction Types',
+  'm3-c2': 'Reaction Rates',
+  'm3-c3': 'Energy Changes',
 };
 
 export default function ChamberPage() {
@@ -153,15 +167,27 @@ export default function ChamberPage() {
     // Save progress if authenticated
     if (sessionRef.current) {
       try {
-        await authFetch('/api/campaign/chamber/complete', sessionRef.current, {
+        // Determine worldId from chamberId
+        const worldId = chamberId.startsWith('m1-') ? 1 : 
+                       chamberId.startsWith('m2-') ? 2 : 
+                       chamberId.startsWith('m3-') ? 3 : 1;
+        
+        const response = await authFetch('/api/campaign/progress', sessionRef.current, {
           method: 'POST',
           body: JSON.stringify({
             chamberId,
+            worldId,
             score: accuracy,
-            passed,
-            timeSpent: 300 - timeLeft,
+            questionsAnswered: questions.length,
+            correctAnswers: score,
           }),
         });
+        
+        const data = await response.json();
+        if (data.firstCompletion && data.xpAwarded > 0) {
+          console.log(`First completion! Earned ${data.xpAwarded} XP`);
+          // Could show a toast or other UI feedback here
+        }
       } catch (error) {
         console.error('Failed to save chamber progress:', error);
       }
