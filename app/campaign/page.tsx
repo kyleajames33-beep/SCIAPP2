@@ -21,6 +21,21 @@ const WORLD_TO_SET_ID: Record<string, string> = {
   'module-3': 'qs-m3',
 };
 
+// Chamber → Boss mapping - each chamber is now a boss battle!
+const CHAMBER_TO_BOSS: Record<string, string> = {
+  'm1-c1': 'atomic-structure-boss',     // Atomic Structure → The Atom Guardian
+  'm1-c2': 'periodic-table-boss',      // Periodic Table → The Element Master  
+  'm1-c3': 'chemical-bonding-boss',    // Chemical Bonding → The Bond Breaker
+  'm1-c4': 'imf-boss',                 // IMF → The Force Controller
+  'm2-c1': 'mole-concept-boss',        // The Mole → The Mole Whisperer
+  'm2-c2': 'stoichiometry-boss',       // Stoichiometry → The Equation Master
+  'm2-c3': 'concentration-boss',       // Concentration → The Solution Sage
+  'm2-c4': 'gas-laws-boss',            // Gas Laws → The Pressure King
+  'm3-c1': 'reaction-types-boss',      // Reaction Types → The Reaction Wizard
+  'm3-c2': 'reaction-rates-boss',      // Reaction Rates → The Speed Demon
+  'm3-c3': 'energy-changes-boss',      // Energy Changes → The Thermal Titan
+};
+
 // Per-module theme (boss themeColor + a contrasting icon)
 const MODULE_THEME: Record<string, { color: string; dimColor: string; icon: React.ReactNode; bg: string }> = {
   'module-1': {
@@ -387,12 +402,15 @@ export default function CampaignPage() {
                         </div>
                       );
 
-                      // Wrap in Link if not locked
-                      const chamberHref = `/campaign/chamber/${chamber.id}`;
-                      return chamberLocked ? (
+                      // Link to chamber boss battle
+                      const chamberBossId = CHAMBER_TO_BOSS[chamber.id];
+                      if (!chamberBossId) {
+                        console.error(`[Campaign] No boss mapping for chamber: ${chamber.id}`);
+                      }
+                      return chamberLocked || !chamberBossId ? (
                         <div key={chamber.id}>{node}</div>
                       ) : (
-                        <Link key={chamber.id} href={chamberHref} className="flex items-center">
+                        <Link key={chamber.id} href={`/campaign/boss/${chamberBossId}`} className="flex items-center">
                           {node}
                         </Link>
                       );

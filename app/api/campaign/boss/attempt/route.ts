@@ -97,15 +97,20 @@ export async function POST(request: NextRequest) {
           },
         }
       );
+      if (!authRes.ok) {
+        console.error(`[auth-me] Edge function returned ${authRes.status}`);
+        return json({ error: "Auth service unavailable" }, 503);
+      }
       const authData = await authRes.json();
       if (!authData.isGuest && authData.id) {
         userId = authData.id as string;
       }
-    } catch {
-      // auth unreachable — treat as guest
+    } catch (err) {
+      console.error("[auth-me] Unreachable:", err);
+      return json({ error: "Auth service unavailable" }, 503);
     }
 
-    // Guest: return empty rewards (no 503, frontend handles null gracefully)
+    // Genuine guest (no token sent): return empty rewards
     if (!userId) {
       return json({ rewards: null, rankUp: null });
     }
