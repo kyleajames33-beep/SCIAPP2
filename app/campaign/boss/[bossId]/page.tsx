@@ -175,6 +175,8 @@ export default function BossBattleClient() {
   // Ref mirrors — keep in sync with state so timers can read current values (stale closure prevention)
   const playerEnergyRef  = useRef(0);
   const shieldActiveRef  = useRef(false);
+  const sessionRef       = useRef(session);
+  useEffect(() => { sessionRef.current = session; }, [session]);
   const particles = useRef(
     Array.from({ length: 12 }, (_, i) => ({
       x: 8 + (i * 7.5) % 85,
@@ -432,6 +434,7 @@ export default function BossBattleClient() {
 
   const nextQuestion = () => {
     if (currentQuestionIndex >= questions.length - 1) {
+      if (!battleActiveRef.current) return; // prevent double-fire if victory already claimed
       setBoss((prev) => (prev ? { ...prev, phase: "defeat" } : null));
       submitBossAttempt(false);
       return;
@@ -445,7 +448,7 @@ export default function BossBattleClient() {
   const submitBossAttempt = async (victory: boolean) => {
     try {
       const apiBossId = resolvedBossId || bossId;
-      const response = await authFetch("/api/campaign/boss/attempt", session, {
+      const response = await authFetch("/api/campaign/boss/attempt", sessionRef.current, {
         method: "POST",
         body: JSON.stringify({
           bossId: apiBossId,
