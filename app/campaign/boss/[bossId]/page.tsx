@@ -236,11 +236,15 @@ export default function BossBattleClient() {
     fetch(`/api/questions?chamberId=${chamberId}&count=15`)
       .then((res) => res.json())
       .then((d) => {
-        setQuestions(d.questions || []);
+        const qs = d.questions || [];
+        if (qs.length === 0) {
+          toast.error("No questions found for this boss. Please try again.");
+        }
+        setQuestions(qs);
         setIsLoading(false);
       })
       .catch(() => {
-        toast.error("Failed to load questions");
+        toast.error("Failed to load questions. Please check your connection.");
         setIsLoading(false);
       });
   }, [resolvedBossId, bossId, router]);
@@ -467,6 +471,7 @@ export default function BossBattleClient() {
       }
     } catch (error) {
       console.error("Failed to submit boss attempt:", error);
+      toast.error("Could not save your results. Please check your connection.");
     }
   };
 
