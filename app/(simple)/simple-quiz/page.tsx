@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getRandomQuestion, Question } from '@/lib/questions-supabase';
+// import { getRandomQuestion, Question } from '@/lib/questions-supabase';
+
+type Question = any; // placeholder
 
 export default function SimpleQuizPage() {
   const [question, setQuestion] = useState<Question | null>(null);
@@ -17,7 +19,8 @@ export default function SimpleQuizPage() {
     setShowResult(false);
 
     console.log('[SIMPLE-QUIZ] Fetching question...');
-    const { question, error } = await getRandomQuestion();
+    // const { question, error } = await getRandomQuestion();
+    const error = 'Simple quiz disabled - experimental feature';
 
     if (error) {
       console.error('[SIMPLE-QUIZ] Error:', error);

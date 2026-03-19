@@ -48,7 +48,8 @@
       "Bash(npx tsc --noEmit --skipLibCheck app/campaign/page.tsx app/api/questions/route.ts data/bosses.json)",
       "Bash(npx tsc --noEmit --skipLibCheck app/campaign/page.tsx app/api/questions/route.ts)",
       "Bash(npx tsc --noEmit --skipLibCheck app/campaign/boss/[bossId]/page.tsx app/campaign/chamber/[chamberId]/page.tsx)",
-      "Bash(npx tsc --noEmit --skipLibCheck app/campaign/boss/[bossId]/page.tsx)"
+      "Bash(npx tsc --noEmit --skipLibCheck app/campaign/boss/[bossId]/page.tsx)",
+      "Bash(npm run build)"
     ]
   }
 }

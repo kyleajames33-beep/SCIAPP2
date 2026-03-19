@@ -4,6 +4,11 @@ import { checkRankUp } from "@/lib/ranks";
 
 export const dynamic = "force-dynamic";
 
+// Simple rate limiting - max 10 boss attempts per minute per IP
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX = 10;
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -31,8 +36,39 @@ function calculateRewards(
   };
 }
 
+function checkRateLimit(clientIP: string): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(clientIP);
+
+  if (!record || now > record.resetTime) {
+    // First request or window expired - reset
+    rateLimitMap.set(clientIP, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    return true;
+  }
+
+  if (record.count >= RATE_LIMIT_MAX) {
+    return false; // Rate limit exceeded
+  }
+
+  // Increment count
+  record.count++;
+  return true;
+}
+
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting check
+    const clientIP = request.headers.get("x-forwarded-for")?.split(",")[0] || 
+                     request.headers.get("x-real-ip") || 
+                     "unknown";
+                     
+    if (!checkRateLimit(clientIP)) {
+      return json(
+        { error: "Too many requests. Please wait a minute before trying again." },
+        429
+      );
+    }
+
     const body = await request.json();
     const {
       bossId,

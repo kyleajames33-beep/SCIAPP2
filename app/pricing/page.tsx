@@ -51,8 +51,8 @@ export default function PricingPage() {
   const [userTier, setUserTier] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const reason = searchParams.get("reason");
-  const attemptedPath = searchParams.get("attempted");
+  const reason = searchParams?.get("reason");
+  const attemptedPath = searchParams?.get("attempted");
 
   useEffect(() => {
     async function checkUser() {
